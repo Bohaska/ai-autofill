@@ -1,5 +1,6 @@
  @import '@extension/ui/global.css';
 
 body {
-  /* Removed fixed width and height to allow popup to size dynamically */
+  width: 380px; /* Set a standard width for the popup */
+  height: 500px; /* Set a standard height for the popup */
 }
