@@ -15,11 +15,11 @@
 }
 
 .App-header {
-  height: 100%;
+  /* Removed height: 100% to allow content to dictate height */
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  /* Removed justify-content: flex-end to allow content to start from the top */
   font-size: 0.75rem;
 }
 
