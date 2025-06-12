@@ -47,7 +47,7 @@ const manifest = {
     {
       matches: ['<all_urls>'],
       js: ['content/all.iife.js'],
-      run_at: 'document_idle',
+      run_at: 'document_end', // Changed from 'document_idle' to load earlier
     },
   ],
   web_accessible_resources: [
