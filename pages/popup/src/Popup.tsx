@@ -69,8 +69,8 @@ const Popup = () => {
   };
 
   return (
-    <div className="App min-w-[300px] bg-slate-50 p-4 text-gray-900">
-      <header className="App-header flex flex-col items-center justify-center">
+    <div className="App min-w-[300px] bg-slate-50 p-4 text-gray-900 overflow-y-auto">
+      <header className="App-header flex flex-col items-center">
         <img
           src={chrome.runtime.getURL('icon-128.png')}
           className="App-logo mb-4 h-24 w-24"
