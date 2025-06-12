@@ -46,7 +46,7 @@ const manifest = {
   content_scripts: [
     {
       matches: ['<all_urls>'],
-      js: ['content/index.iife.js'],
+      js: ['content/all.iife.js'],
       run_at: 'document_idle',
     },
   ],
