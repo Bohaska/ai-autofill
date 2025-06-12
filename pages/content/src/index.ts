@@ -76,8 +76,32 @@ function extractFormData() {
   return formElements;
 }
 
+// Helper functions for specific actions
+function fillTextInput(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  element.value = value;
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function selectDropdownOption(element: HTMLSelectElement, value: string) {
+  element.value = value;
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function checkRadioOrCheckbox(element: HTMLInputElement, checked: boolean) {
+  element.checked = checked;
+  element.dispatchEvent(new Event('click', { bubbles: true })); // Click often triggers more reliably for checkboxes/radios
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // Function to execute actions received from the background script
 async function executeActions(actions: any[]) {
+  const actionHandlers: { [key: string]: (element: HTMLElement, args: any) => void } = {
+    fill_text_input: (element, args) => fillTextInput(element as HTMLInputElement | HTMLTextAreaElement, args.value),
+    select_dropdown_option: (element, args) => selectDropdownOption(element as HTMLSelectElement, args.value),
+    check_radio_or_checkbox: (element, args) => checkRadioOrCheckbox(element as HTMLInputElement, args.checked),
+  };
+
   for (const action of actions) {
     const { tool_name, args } = action;
     const selector = args.selector;
@@ -97,18 +121,12 @@ async function executeActions(actions: any[]) {
     }
 
     try {
-      if (tool_name === 'fill_text_input') {
-        (element as HTMLInputElement | HTMLTextAreaElement).value = args.value;
-        // Dispatch input and change events to ensure React/other frameworks pick up the change
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (tool_name === 'select_dropdown_option') {
-        (element as HTMLSelectElement).value = args.value;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (tool_name === 'check_radio_or_checkbox') {
-        (element as HTMLInputElement).checked = args.checked;
-        element.dispatchEvent(new Event('click', { bubbles: true })); // Click often triggers more reliably for checkboxes/radios
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+      const handler = actionHandlers[tool_name];
+      if (handler) {
+        handler(element, args);
+      } else {
+        console.warn(`Unknown tool_name: ${tool_name}`);
+        continue;
       }
 
       // Add temporary visual feedback
