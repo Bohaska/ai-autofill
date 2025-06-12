@@ -13,6 +13,12 @@
   "injectButton": {
     "message": "Click to inject Content Scripts"
   },
+  "saveProfileButton": {
+    "message": "Save Profile"
+  },
+  "autofillNowButton": {
+    "message": "Autofill Now"
+  },
   "greeting": {
     "description": "Greeting message",
     "message": "Hello, My name is $NAME$",
