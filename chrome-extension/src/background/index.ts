@@ -124,8 +124,7 @@ Based on the form elements and user data, suggest the next action(s) to take usi
       },
     });
 
-    const response = result.response;
-    const toolCalls = response.functionCalls();
+    const toolCalls = result.functionCalls;
 
     if (toolCalls && toolCalls.length > 0) {
       chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Filling fields...' });
