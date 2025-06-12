@@ -1,5 +1,5 @@
 import 'webextension-polyfill';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/genai';
 
 // Temporary storage for autofill requests, as service workers are stateless
 const autofillRequests: Record<number, { profile: any; apiKey: string }> = {};
@@ -58,7 +58,7 @@ async function handleFormDataExtracted(formData: any[], tabId?: number) {
   chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Sending data to Gemini...' });
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
 
   const prompt = `You are an AI assistant specialized in intelligently filling web forms.
 Here is the current state of the web page's form elements (including their unique selectors for interaction):
