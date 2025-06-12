@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import type React from 'react';
+import { useState, useEffect } from 'react';
 import '@src/Popup.css';
 import { t } from '@extension/i18n';
 import { withErrorBoundary, withSuspense } from '@extension/shared';
@@ -68,13 +69,17 @@ const Popup = () => {
   };
 
   return (
-    <div className="App min-w-[300px] p-4 bg-slate-50 text-gray-900">
+    <div className="App min-w-[300px] bg-slate-50 p-4 text-gray-900">
       <header className="App-header flex flex-col items-center justify-center">
-        <img src={chrome.runtime.getURL('icon-128.png')} className="App-logo w-24 h-24 mb-4" alt="AI Autofill Pro Logo" />
-        <h1 className="text-xl font-bold mb-4">AI Autofill Pro</h1>
+        <img
+          src={chrome.runtime.getURL('icon-128.png')}
+          className="App-logo mb-4 h-24 w-24"
+          alt="AI Autofill Pro Logo"
+        />
+        <h1 className="mb-4 text-xl font-bold">AI Autofill Pro</h1>
 
-        <div className="w-full mb-4">
-          <h2 className="text-lg font-semibold mb-2">Your Profile (Plaintext)</h2>
+        <div className="mb-4 w-full">
+          <h2 className="mb-2 text-lg font-semibold">Your Profile (Plaintext)</h2>
           <textarea
             name="profileText"
             placeholder="Enter your personal information here, e.g.,
@@ -86,25 +91,31 @@ Date of Birth: 1990-01-15
 Gender: Male"
             value={profileText}
             onChange={handleProfileTextChange}
-            className="w-full p-2 border rounded h-40 resize-y text-sm"
+            className="h-40 w-full resize-y rounded border p-2 text-sm"
           />
-          <button onClick={handleSaveProfile} className="mt-2 w-full bg-blue-500 text-white py-1 rounded hover:bg-blue-600">
+          <button
+            onClick={handleSaveProfile}
+            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
             {t('saveProfileButton', 'Save Profile')}
           </button>
         </div>
 
-        <div className="w-full mb-4">
-          <h2 className="text-lg font-semibold mb-2">Gemini API Key</h2>
+        <div className="mb-4 w-full">
+          <h2 className="mb-2 text-lg font-semibold">Gemini API Key</h2>
           <input
             type="password"
             placeholder="Enter your Gemini API Key"
             value={geminiApiKey}
             onChange={e => setGeminiApiKey(e.target.value)}
-            className="w-full p-1 border rounded"
+            className="w-full rounded border p-1"
           />
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="mt-1 text-xs text-gray-600">
             Your API key is stored locally in your browser. Get one from{' '}
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline">
               Google AI Studio
             </a>
             .
@@ -113,17 +124,20 @@ Gender: Male"
 
         <button
           onClick={handleAutofillNow}
-          className="w-full bg-green-500 text-white py-2 rounded-lg text-lg font-bold shadow hover:bg-green-600 transition-colors duration-200"
-        >
+          className="w-full rounded-lg bg-green-500 py-2 text-lg font-bold text-white shadow transition-colors duration-200 hover:bg-green-600">
           {t('autofillNowButton', 'Autofill Now')}
         </button>
 
         <p className="mt-4 text-sm text-gray-700">Status: {status}</p>
 
-        <p className="mt-4 text-xs text-gray-500 text-center">
-          Disclaimer: By using Autofill, your form data and parts of the webpage DOM will be sent to Google's Gemini API for processing.
-          Please review Google's{' '}
-          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+        <p className="mt-4 text-center text-xs text-gray-500">
+          Disclaimer: By using Autofill, your form data and parts of the webpage DOM will be sent to Google's Gemini API
+          for processing. Please review Google's{' '}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline">
             Privacy Policy
           </a>
           .
