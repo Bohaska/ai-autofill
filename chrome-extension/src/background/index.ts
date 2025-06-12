@@ -2,7 +2,7 @@ import 'webextension-polyfill';
 import { GoogleGenAI } from '@google/genai';
 
 // Temporary storage for autofill requests, as service workers are stateless
-const autofillRequests: Record<number, { profile: any; apiKey: string }> = {};
+const autofillRequests: Record<number, { profile: any; apiKey: string }> = {}; // Change type to 'any' for structured profile
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'AUTOFILL_REQUEST') {
@@ -17,7 +17,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-async function handleAutofillRequest(payload: { tabId: number; profile: string; apiKey: string }) {
+async function handleAutofillRequest(payload: { tabId: number; profile: any; apiKey: string }) { // Change profile type to 'any'
   const { tabId, profile, apiKey } = payload;
   if (!tabId) {
     console.error('No tabId provided for autofill request.');
@@ -46,7 +46,7 @@ async function handleFormDataExtracted(formData: any[], tabId?: number) {
     return;
   }
 
-  const { profile, apiKey } = autofillRequests[tabId]; // 'profile' is now a string
+  const { profile, apiKey } = autofillRequests[tabId]; // 'profile' is now an object
 
   if (!apiKey) {
     console.error('Gemini API Key is missing.');
@@ -64,8 +64,8 @@ async function handleFormDataExtracted(formData: any[], tabId?: number) {
 Here is the current state of the web page's form elements (including their unique selectors for interaction):
 ${JSON.stringify(formData, null, 2)}
 
-Here is the user's personal information, provided as plaintext. Extract relevant details from this text to fill the form:
-${profile}
+Here is the user's personal information, provided as a JSON object. Use these structured details to fill the form:
+${JSON.stringify(profile, null, 2)}
 
 Your goal is to fill out this form accurately using the provided user information.
 You have the following tools available:
