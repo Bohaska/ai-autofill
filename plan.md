@@ -210,44 +210,43 @@ This guide outlines how to integrate the AI Autofill Pro logic into the provided
     cd chrome-extension-boilerplate-react-vite
     npm install # or yarn
     ```
-2.  **Inspect `manifest.js`:**
+2.  **Inspect `chrome-extension/manifest.ts`:**
     * Ensure `manifest_version: 3` for Chrome compatibility.
     * **Add necessary permissions:**
         * `"activeTab"`: Crucial for user-triggered interaction with the current tab.
         * `"storage"`: For storing user profiles and API keys.
         * `"scripting"`: For injecting the content script dynamically.
         * `"host_permissions": ["<all_urls>"]`: Required for the content script to run on any webpage to analyze forms. This is a sensitive permission, and users should be informed.
-    * Verify `background.service_worker` points to `src/pages/background/index.js`.
-    * Verify `content_scripts` are NOT automatically declared here. We will inject the content script dynamically using `chrome.scripting.executeScript`.
+    * Verify `background.service_worker` points to `background.js`.
+    * Verify `content_scripts` are configured correctly. The current `chrome-extension/manifest.ts` already has a single content script entry: `js: ['content/index.iife.js']`.
 
 3.  **Clean up / Rename Boilerplate Components:**
-    * Rename `src/pages/popup/App.jsx` to something more descriptive like `src/pages/popup/AutofillPopup.jsx`.
-    * Adjust imports accordingly.
-    * Remove any boilerplate example logic from `background` or `content` scripts that is not relevant to autofill.
+    * The main popup component is `pages/popup/src/Popup.tsx`. Adjust imports accordingly.
+    * Remove any boilerplate example logic from `chrome-extension/src/background/index.ts` or `pages/content/src/matches/` scripts that is not relevant to autofill.
 
 ---
 
 ### II. Core Components & Logic Integration
 
-#### A. Popup UI (`src/pages/popup/AutofillPopup.jsx` and related)
+#### A. Popup UI (`pages/popup/src/Popup.tsx` and related)
 
 This will be your main user interface.
 
 1.  **User Profile Management:**
-    * **State Management:** Use React `useState` and `useEffect` hooks for managing the form fields for user data (e.g., first name, last name, email, address components).
+    * **State Management:** Use React `useState` and `useEffect` hooks for managing the plaintext user data in a single textarea.
     * **Persistence:**
-        * On component mount, load saved user data from `chrome.storage.local` using `chrome.storage.local.get()`.
+        * On component mount, load saved user data from `chrome.storage.local` using `chrome.storage.local.get()`. The key for profile data is `profileText`.
         * On input changes, update local React state.
         * On a "Save Profile" button click, save the current state to `chrome.storage.local.set()`.
-    * **UI Elements:** Input fields for each piece of user data, a "Save Profile" button, a "Clear Profile" button.
+    * **UI Elements:** A textarea for plaintext user data, a "Save Profile" button.
 2.  **Gemini API Key Input:**
     * Dedicated input field for the user's Gemini API key.
     * Similarly, load and save this key to `chrome.storage.local`. Emphasize **never hardcoding** this key or bundling it with the extension.
 3.  **"Autofill Now" Button:**
     * This is the trigger for the entire autofill process.
     * On click, it will:
-        * Retrieve the current user profile and Gemini API key from local storage.
-        * Send a message to the background service worker (`chrome.runtime.sendMessage`) with the type `AUTOFILL_REQUEST` and the payload containing the user data and API key.
+        * Retrieve the current plaintext user profile and Gemini API key from local storage.
+        * Send a message to the background service worker (`chrome.runtime.sendMessage`) with the type `AUTOFILL_REQUEST` and the payload containing the user data (as plaintext) and API key.
         * Update the popup UI to show a "Loading..." or "Analyzing..." status.
 4.  **Status and Feedback Display:**
     * A dedicated area (e.g., a `<div>`) to show messages like "Autofill Complete!", "Error: Invalid API Key", "Analyzing form...", "Please review the filled fields."
@@ -255,22 +254,23 @@ This will be your main user interface.
 5.  **User Consent/Disclaimer:**
     * Prominently display a disclaimer about data being sent to Google's Gemini API for processing when autofill is triggered. Include a link to Google's privacy policy.
 
-#### B. Background Service Worker (`src/pages/background/index.js`)
+#### B. Background Service Worker (`chrome-extension/src/background/index.ts`)
 
 This script acts as the orchestrator and the bridge to the Gemini API.
 
 1.  **Message Listener:**
     * Use `chrome.runtime.onMessage.addListener` to listen for messages from the popup and the content script.
     * **Handle `AUTOFILL_REQUEST` (from Popup):**
-        * Extract `userData` and `geminiApiKey` from the message.
-        * **Inject Content Script (if not already):** Use `chrome.scripting.executeScript` to inject `src/pages/content/index.js` into the active tab. The `target.tabId` will be available from the `sender.tab.id` or by querying `chrome.tabs.query({ active: true, currentWindow: true })`.
-        * **Request Form Data:** Send a message to the newly injected content script (e.g., type `EXTRACT_FORM_DATA`).
+        * Extract `profile` (plaintext string) and `geminiApiKey` from the message.
+        * **Inject Content Script (if not already):** The content script is already declared in `manifest.ts` to run on `document_idle`. You will communicate with it via `chrome.tabs.sendMessage`.
+        * **Request Form Data:** Send a message to the content script (e.g., type `EXTRACT_FORM_DATA`).
     * **Handle `FORM_DATA_EXTRACTED` (from Content Script):**
         * Receive the `formStructure` (the structured JSON of form elements) from the content script.
         * **Gemini API Call:**
             * Construct the detailed prompt for Gemini Flash 2.5 (as described in the previous plan: system instruction, tool definitions, user query, form structure, user data).
             * Make the `fetch` request to the Gemini API endpoint using the `geminiApiKey`.
             * Implement robust `try-catch` blocks for API errors (network issues, invalid key, rate limits).
+            * The prompt should explicitly state that the user's personal information is provided as plaintext and the model should extract relevant details from it.
         * **Process Gemini Response:**
             * Parse the JSON response from Gemini.
             * Validate that the `tool_calls` array is present and correctly structured.
@@ -286,34 +286,111 @@ This script acts as the orchestrator and the bridge to the Gemini API.
     * Implement robust error handling for network issues, API errors, and unexpected content script behavior.
     * Communicate errors back to the popup for user feedback.
 
-#### C. Content Script (`src/pages/content/index.js`)
+#### C. Content Script (`pages/content/src/index.ts`)
 
 This script directly interacts with the webpage's DOM.
 
-1.  **Message Listener:**
-    * Use `chrome.runtime.onMessage.addListener` to listen for messages from the background service worker.
-    * **Handle `EXTRACT_FORM_DATA`:**
-        * **DOM Traversal & Extraction:**
-            * Implement a function (e.g., `extractFormFields()`) that traverses the DOM.
-            * Use `document.querySelectorAll('input, textarea, select, button')` to find relevant elements.
-            * For each element:
-                * Extract `id`, `name`, `type`, `placeholder`.
-                * Crucially, find associated `<label>` text by checking `element.labels` or by looking for parent/sibling `<label>` elements.
-                * For `<select>` elements, iterate through `<option>` tags to get their `value` and display text.
-                * Generate a **reliable XPath or unique CSS Selector** for each interactive element. This is vital. Consider using a utility function that generates a stable selector (e.g., prioritizing `id`, then `name`, then a more robust XPath).
-                * Structure this data into a clean JSON object for each field.
-            * Filter out non-form-related buttons or irrelevant elements.
-        * Send the `formStructure` JSON back to the background script (type `FORM_DATA_EXTRACTED`).
-    * **Handle `EXECUTE_ACTIONS`:**
-        * Receive the `tool_calls` array from the background script.
-        * Iterate through each tool call.
-        * **Locate Element:** Use `document.evaluate` (for XPath) or `document.querySelector` (for CSS selector) to find the target element.
-        * **Execute Action:**
-            * **`fill_text_input`:** Set `element.value = args.value`.
-            * **`select_dropdown_option`:** Set `element.value = args.value` (assuming `value` matches an option's `value` attribute). Trigger `change` event manually if needed: `element.dispatchEvent(new Event('change', { bubbles: true }))`.
-            * **`check_radio_or_checkbox`:** Set `element.checked = args.checked`. For radio buttons, clicking them is often more reliable: `element.click()`.
-        * **Visual Feedback:** Add a temporary CSS class (e.g., `autofilled-highlight`) to the filled element to visually indicate to the user what was filled. Use `setTimeout` to remove the highlight after a few seconds.
-        * Send a `AUTOFILL_COMPLETE` message to the background script after all actions are executed (or `AUTOFILL_ERROR` if an element isn't found).
+1.  **DOM Extraction Logic:**
+    * Listen for `EXTRACT_FORM_DATA` message from the background script.
+    * Implement functions to traverse the DOM and extract form elements.
+    * **Crucial:** Generating stable and unique selectors. XPath is often more robust than simple CSS selectors for complex pages.
+        * For each element, store its `tagName`, `type`, `id`, `name`, `placeholder`, `value`, text from associated `<label>`, `aria-label`, `aria-labelledby`, and most importantly, a unique **XPath** or highly specific CSS selector.
+        * For `<select>` elements, include the `options` (text and value).
+        * For `radio` and `checkbox` elements, identify their `value` and `checked` status. Group radio buttons by `name`.
+    * Send the extracted structured data (`formData`) back to the background script using `chrome.runtime.sendMessage`.
+    * ```typescript
+        // in pages/content/src/index.ts
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+          if (message.type === 'EXTRACT_FORM_DATA') {
+            const formData = extractFormData(); // Implement this function
+            chrome.runtime.sendMessage({ type: 'FORM_DATA_EXTRACTED', payload: formData });
+            return true; // Indicates async response
+          } else if (message.type === 'EXECUTE_ACTIONS') {
+            executeActions(message.payload); // Implement this function
+          }
+        });
+
+        function extractFormData() {
+          const formElements: any[] = [];
+          document.querySelectorAll('input, textarea, select').forEach(element => {
+            const el = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+            const data: any = {
+              tagName: el.tagName.toLowerCase(),
+              type: el.type || el.tagName.toLowerCase(), // 'input' type can be missing
+              id: el.id,
+              name: el.name,
+              placeholder: el.placeholder,
+              selector: getElementXPath(el) || getCssSelector(el), // Prioritize XPath, then CSS
+              // Add label text, aria-labels, etc.
+            };
+
+            if (el.tagName.toLowerCase() === 'select') {
+              data.options = Array.from((el as HTMLSelectElement).options).map(opt => ({
+                text: opt.textContent,
+                value: opt.value,
+              }));
+            }
+            // Add specific logic for radio/checkbox groups if needed
+
+            formElements.push(data);
+          });
+          return formElements;
+        }
+
+        // Helper function to get XPath (can be complex, use a robust library or implement carefully)
+        // Example (simplified):
+        function getElementXPath(element: Element): string {
+          if (element.id !== '') return `//*[@id='${element.id}']`;
+          if (element === document.body) return '/html/body';
+          let ix = 0;
+          const siblings = element.parentNode?.children || [];
+          for (let i = 0; i < siblings.length; i++) {
+            const sibling = siblings[i];
+            if (sibling === element) return `${getElementXPath(element.parentNode!)}/${element.tagName.toLowerCase()}[${ix + 1}]`;
+            if (sibling.nodeType === 1 && sibling.tagName === element.tagName) ix++;
+          }
+          return ''; // Fallback if no parent
+        }
+        // getCssSelector can also be implemented or use a library
+        ```
+
+2.  **Action Execution Logic:**
+    * Listen for `EXECUTE_ACTIONS` message from the background script.
+    * Implement `executeActions` function:
+        * Iterate through the `payload` (Gemini's tool calls).
+        * For each action, use the `selector` (XPath/CSS selector) to find the element on the page.
+        * Perform the action (e.g., set `value`, `selectedIndex`, `checked` status).
+        * Add visual feedback (e.g., `element.style.border = '2px solid green'`).
+        * ```typescript
+            // in pages/content/src/index.ts
+            async function executeActions(actions: any[]) {
+              for (const action of actions) {
+                const { tool_name, args } = action;
+                const element = document.evaluate(args.selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue as HTMLElement | null;
+
+                if (!element) {
+                  console.warn(`Element not found for selector: ${args.selector}`);
+                  continue;
+                }
+
+                if (tool_name === 'fill_text_input') {
+                  (element as HTMLInputElement | HTMLTextAreaElement).value = args.value;
+                } else if (tool_name === 'select_dropdown_option') {
+                  (element as HTMLSelectElement).value = args.value;
+                } else if (tool_name === 'check_radio_or_checkbox') {
+                  (element as HTMLInputElement).checked = args.checked;
+                  element.dispatchEvent(new Event('change', { bubbles: true })); // Trigger change event
+                }
+                // Add temporary visual feedback
+                element.style.outline = '2px solid #4CAF50'; // Green outline
+                element.style.transition = 'outline 0.3s ease-out';
+                setTimeout(() => {
+                  element.style.outline = 'none';
+                }, 1500); // Remove highlight after 1.5 seconds
+              }
+              chrome.runtime.sendMessage({ type: 'FILL_COMPLETE' });
+            }
+            ```
 
 ---
 
@@ -339,15 +416,15 @@ This script directly interacts with the webpage's DOM.
 
 ---
 
-### IV. Cross-Browser Considerations (Chrome MV3 vs. Firefox WebExtensions)
+### IV. Cross-Browser Considerations (Chrome MV3 & Firefox WebExtensions)
 
 The boilerplate primarily targets Chrome MV3. For full Firefox compatibility:
 
-1.  **`manifest.js` (Conditional Generation):** You might need to adjust the `manifest.js` to generate a Manifest V2 for Firefox during its build step (Firefox is still in transition to MV3). This could involve:
+1.  **`chrome-extension/manifest.ts` (Conditional Generation):** You might need to adjust the `chrome-extension/manifest.ts` to generate a Manifest V2 for Firefox during its build step (Firefox is still in transition to MV3). This could involve:
     * Different `manifest_version`.
     * Potentially different `background` key (Firefox uses `scripts` array for persistent background pages, not `service_worker`).
     * Different `permissions` if necessary.
-    * The boilerplate's `manifest.js` might have a way to handle this, or you may need to introduce a separate `manifest.firefox.js`.
+    * The boilerplate's `manifest.ts` might have a way to handle this, or you may need to introduce a separate `manifest.firefox.ts`.
 2.  **API Compatibility:**
     * **`browser` vs. `chrome`:** For `chrome.storage`, `chrome.runtime`, `chrome.tabs`, etc., consider using a polyfill like `webextension-polyfill` or manually checking `if (typeof browser !== 'undefined')` to use `browser.storage` for Firefox and `chrome.storage` for Chrome.
     * **`chrome.scripting`:** This API is Chrome-specific (MV3). Firefox uses `browser.tabs.executeScript`. Your background script will need conditional logic or a wrapper for this.
@@ -742,12 +819,12 @@ This script interacts directly with the webpage DOM.
 
 ---
 
-### 3. Messaging Utilities (`src/shared/utils/messaging.ts` or similar)
+### 3. Messaging Utilities (`packages/shared/lib/utils/messaging.ts` or similar)
 
 Create a shared utility for sending and receiving messages between different parts of the extension. This helps abstract `chrome.runtime.sendMessage`, etc., and makes the code cleaner.
 
 ```typescript
-// src/shared/utils/messaging.ts
+// packages/shared/lib/utils/messaging.ts
 export const sendMessage = async (message: any, tabId?: number) => {
   if (tabId) {
     // Send to specific tab (content script)
@@ -762,15 +839,15 @@ export const onMessage = (callback: (message: any, sender: chrome.runtime.Messag
   chrome.runtime.onMessage.addListener(callback);
 };
 ```
-Adjust this based on the boilerplate's existing messaging pattern.
+The current implementation uses direct `chrome.runtime.sendMessage` calls, which is also acceptable.
 
 ---
 
 ### 4. Manifest V3 Considerations
 
-* **Service Worker (`background/index.ts`):** Remember that the background script is a Service Worker. It's event-driven and non-persistent. This means any state it needs to maintain across messages (like the `profile` and `apiKey` for a specific autofill request) must be stored (e.g., in `chrome.storage.session` for temporary state, or passed along in message payloads). For a single, sequential autofill request, passing the data in the `AUTOFILL_REQUEST` message and then to `handleFormDataExtracted` is often sufficient.
-* **`host_permissions`:** Make sure `<all_urls>` is declared in `manifest.ts` under `host_permissions` for the content script to run on any website. This will prompt a warning to the user during installation.
-* **Dynamic Content Script Injection (Optional):** While `content_scripts` in `manifest.ts` will auto-inject, for more control (e.g., injecting only when needed for performance), you could use `chrome.scripting.executeScript` from the background script. The boilerplate likely already sets up automatic injection, which is fine for this use case.
+*   **Service Worker (`chrome-extension/src/background/index.ts`):** Remember that the background script is a Service Worker. It's event-driven and non-persistent. This means any state it needs to maintain across messages (like the `profile` and `apiKey` for a specific autofill request) must be stored (e.g., in `chrome.storage.session` for temporary state, or passed along in message payloads). For a single, sequential autofill request, passing the data in the `AUTOFILL_REQUEST` message and then to `handleFormDataExtracted` is often sufficient.
+*   **`host_permissions`:** Make sure `<all_urls>` is declared in `chrome-extension/manifest.ts` under `host_permissions` for the content script to run on any website. This will prompt a warning to the user during installation.
+*   **Dynamic Content Script Injection (Optional):** While `content_scripts` in `chrome-extension/manifest.ts` will auto-inject, for more control (e.g., injecting only when needed for performance), you could use `chrome.scripting.executeScript` from the background script. The boilerplate already sets up automatic injection via `manifest.ts`, which is fine for this use case.
 
 ---
 
