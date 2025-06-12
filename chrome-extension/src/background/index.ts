@@ -17,7 +17,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-async function handleAutofillRequest(payload: { tabId: number; profile: any; apiKey: string }) {
+async function handleAutofillRequest(payload: { tabId: number; profile: string; apiKey: string }) {
   const { tabId, profile, apiKey } = payload;
   if (!tabId) {
     console.error('No tabId provided for autofill request.');
@@ -46,7 +46,7 @@ async function handleFormDataExtracted(formData: any[], tabId?: number) {
     return;
   }
 
-  const { profile, apiKey } = autofillRequests[tabId];
+  const { profile, apiKey } = autofillRequests[tabId]; // 'profile' is now a string
 
   if (!apiKey) {
     console.error('Gemini API Key is missing.');
@@ -64,8 +64,8 @@ async function handleFormDataExtracted(formData: any[], tabId?: number) {
 Here is the current state of the web page's form elements (including their unique selectors for interaction):
 ${JSON.stringify(formData, null, 2)}
 
-Here is the user's information:
-${JSON.stringify(profile, null, 2)}
+Here is the user's personal information, provided as plaintext. Extract relevant details from this text to fill the form:
+${profile}
 
 Your goal is to fill out this form accurately using the provided user information.
 You have the following tools available:

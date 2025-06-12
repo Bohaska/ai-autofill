@@ -4,38 +4,16 @@ import { t } from '@extension/i18n';
 import { withErrorBoundary, withSuspense } from '@extension/shared';
 import { ErrorDisplay, LoadingSpinner } from '@extension/ui'; // Keep if still needed for suspense/error boundary
 
-interface UserProfile {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  addressLine1: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-}
-
 const Popup = () => {
-  const [profile, setProfile] = useState<UserProfile>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    addressLine1: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: '',
-  });
+  const [profileText, setProfileText] = useState<string>('');
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
   const [status, setStatus] = useState<string>('Ready to autofill.');
 
   useEffect(() => {
     // Load profile and API key from storage on component mount
-    chrome.storage.local.get(['userProfile', 'geminiApiKey'], result => {
-      if (result.userProfile) {
-        setProfile(result.userProfile);
+    chrome.storage.local.get(['profileText', 'geminiApiKey'], result => {
+      if (result.profileText) {
+        setProfileText(result.profileText);
       }
       if (result.geminiApiKey) {
         setGeminiApiKey(result.geminiApiKey);
@@ -55,13 +33,12 @@ const Popup = () => {
     };
   }, []);
 
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setProfile(prev => ({ ...prev, [name]: value }));
+  const handleProfileTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setProfileText(e.target.value);
   };
 
   const handleSaveProfile = async () => {
-    await chrome.storage.local.set({ userProfile: profile, geminiApiKey: geminiApiKey });
+    await chrome.storage.local.set({ profileText: profileText, geminiApiKey: geminiApiKey });
     setStatus('Profile saved!');
   };
 
@@ -84,7 +61,7 @@ const Popup = () => {
       type: 'AUTOFILL_REQUEST',
       payload: {
         tabId: tab.id,
-        profile: profile,
+        profile: profileText, // Send plaintext profile
         apiKey: geminiApiKey,
       },
     });
@@ -97,18 +74,20 @@ const Popup = () => {
         <h1 className="text-xl font-bold mb-4">AI Autofill Pro</h1>
 
         <div className="w-full mb-4">
-          <h2 className="text-lg font-semibold mb-2">Your Profile</h2>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <input type="text" name="firstName" placeholder="First Name" value={profile.firstName} onChange={handleProfileChange} className="p-1 border rounded" />
-            <input type="text" name="lastName" placeholder="Last Name" value={profile.lastName} onChange={handleProfileChange} className="p-1 border rounded" />
-            <input type="email" name="email" placeholder="Email" value={profile.email} onChange={handleProfileChange} className="p-1 border rounded col-span-2" />
-            <input type="tel" name="phone" placeholder="Phone" value={profile.phone} onChange={handleProfileChange} className="p-1 border rounded col-span-2" />
-            <input type="text" name="addressLine1" placeholder="Address Line 1" value={profile.addressLine1} onChange={handleProfileChange} className="p-1 border rounded col-span-2" />
-            <input type="text" name="city" placeholder="City" value={profile.city} onChange={handleProfileChange} className="p-1 border rounded" />
-            <input type="text" name="state" placeholder="State" value={profile.state} onChange={handleProfileChange} className="p-1 border rounded" />
-            <input type="text" name="zip" placeholder="Zip Code" value={profile.zip} onChange={handleProfileChange} className="p-1 border rounded" />
-            <input type="text" name="country" placeholder="Country" value={profile.country} onChange={handleProfileChange} className="p-1 border rounded" />
-          </div>
+          <h2 className="text-lg font-semibold mb-2">Your Profile (Plaintext)</h2>
+          <textarea
+            name="profileText"
+            placeholder="Enter your personal information here, e.g.,
+Name: John Doe
+Email: john.doe@example.com
+Phone: 555-123-4567
+Address: 123 Main St, Anytown, CA 90210, USA
+Date of Birth: 1990-01-15
+Gender: Male"
+            value={profileText}
+            onChange={handleProfileTextChange}
+            className="w-full p-2 border rounded h-40 resize-y text-sm"
+          />
           <button onClick={handleSaveProfile} className="mt-2 w-full bg-blue-500 text-white py-1 rounded hover:bg-blue-600">
             {t('saveProfileButton', 'Save Profile')}
           </button>
