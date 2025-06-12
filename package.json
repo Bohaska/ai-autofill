@@ -1,13 +1,14 @@
 {
-  "name": "chrome-extension-boilerplate-react-vite",
-  "version": "0.5.0",
-  "description": "chrome extension boilerplate",
+  "name": "ai-autofill-pro",
+  "version": "0.1.0",
+  "description": "A user-triggered browser extension that intelligently auto-fills web forms using a user's stored personal information, leveraging Gemini Flash 2.5's reasoning capabilities to understand form structure and make smart filling decisions.",
+  "author": "Your Name Here",
   "license": "MIT",
   "private": true,
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite.git"
+    "url": "https://github.com/your-username/ai-autofill-pro.git"
   },
   "type": "module",
   "scripts": {
