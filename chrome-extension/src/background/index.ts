@@ -1,5 +1,5 @@
 import 'webextension-polyfill';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 // Temporary storage for autofill requests, as service workers are stateless
 const autofillRequests: Record<number, { profile: any; apiKey: string }> = {}; // Change type to 'any' for structured profile
@@ -77,49 +77,51 @@ Based on the form elements and user data, suggest the next action(s) to take usi
 `;
 
   try {
-    const result = await model.generateContent({ // Call generateContent on the 'models' object
+    const result = await model.generateContent({
       model: 'gemini-2.5-flash-preview-05-20', // Specify the model here
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      tools: [
-        {
-          functionDeclarations: [
-            {
-              name: 'fill_text_input',
-              parameters: {
-                type: 'object',
-                properties: {
-                  selector: { type: 'string' },
-                  value: { type: 'string' },
-                  field_type: { type: 'string' },
+      config: { // Wrap tools in a config object
+        tools: [
+          {
+            functionDeclarations: [
+              {
+                name: 'fill_text_input',
+                parameters: {
+                  type: Type.OBJECT,
+                  properties: {
+                    selector: { type: Type.STRING },
+                    value: { type: Type.STRING },
+                    field_type: { type: Type.STRING },
+                  },
+                  required: ['selector', 'value', 'field_type'],
                 },
-                required: ['selector', 'value', 'field_type'],
               },
-            },
-            {
-              name: 'select_dropdown_option',
-              parameters: {
-                type: 'object',
-                properties: {
-                  selector: { type: 'string' },
-                  value: { type: 'string' },
+              {
+                name: 'select_dropdown_option',
+                parameters: {
+                  type: Type.OBJECT,
+                  properties: {
+                    selector: { type: Type.STRING },
+                    value: { type: Type.STRING },
+                  },
+                  required: ['selector', 'value'],
                 },
-                required: ['selector', 'value'],
               },
-            },
-            {
-              name: 'check_radio_or_checkbox',
-              parameters: {
-                type: 'object',
-                properties: {
-                  selector: { type: 'string' },
-                  checked: { type: 'boolean' },
+              {
+                name: 'check_radio_or_checkbox',
+                parameters: {
+                  type: Type.OBJECT,
+                  properties: {
+                    selector: { type: Type.STRING },
+                    checked: { type: Type.BOOLEAN },
+                  },
+                  required: ['selector', 'checked'],
                 },
-                required: ['selector', 'checked'],
               },
-            },
-          ],
-        },
-      ],
+            ],
+          },
+        ],
+      },
     });
 
     const response = result.response;
