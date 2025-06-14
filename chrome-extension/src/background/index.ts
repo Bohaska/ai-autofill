@@ -86,7 +86,6 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
       pageStructureDescription += `  Selector: ${formData.selector}\n`;
       if (formData.value) pageStructureDescription += `  Current Value: "${formData.value}"\n`;
       if (formData.placeholder) pageStructureDescription += `  Placeholder: "${formData.placeholder}"\n`;
-      if (formData.options) pageStructureDescription += `  Options: ${formData.options.map((opt: any) => opt.text).join(', ')}\n`;
       if (formData.type === 'radio' || formData.type === 'checkbox') pageStructureDescription += `  Checked: ${formData.checked}\n`;
       pageStructureDescription += `\n`; // Add a newline for readability
     }
@@ -99,8 +98,8 @@ ${pageStructureDescription}
 Here is a more structured list of the form elements found on the page, including their unique selectors for interaction:
 ${JSON.stringify(formElementsForPrompt, null, 2)}
 
-Here is the user's personal information, provided as a JSON object. Use these structured details to fill the form:
-${JSON.stringify(profile, null, 2)}
+Here is the user's personal information. Use these details to fill the form:
+${profile}
 
 Your goal is to fill out this form accurately using the provided user information.
 You have the following tools available:
