@@ -174,9 +174,27 @@ Based on the form elements, the surrounding text context, and user data, suggest
       // No sendResponse here.
     }
 
-  } catch (error) {
+  } catch (error: any) { // Explicitly type error as 'any' to access properties
     console.error('Gemini API call failed:', error);
-    chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: `Error from Gemini: ${error instanceof Error ? error.message : String(error)}` });
+    let userFriendlyMessage = `Error from Gemini: ${error instanceof Error ? error.message : String(error)}`;
+
+    // Check for 429 Quota Exceeded error
+    if (error.response && error.response.status === 429) {
+      try {
+        const errorBody = JSON.parse(await error.response.text());
+        const quotaMetric = errorBody.error?.details?.[0]?.violations?.[0]?.quotaMetric;
+        if (quotaMetric) {
+          userFriendlyMessage = `Gemini API Quota Exceeded. Please try again later or check your Google Cloud project's billing and quota limits.`;
+        } else {
+          userFriendlyMessage = `Gemini API Quota Exceeded (429).`;
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse Gemini 429 error response:', parseError);
+        userFriendlyMessage = `Gemini API Quota Exceeded (429).`;
+      }
+    }
+
+    chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: userFriendlyMessage });
     // No sendResponse here.
   } finally {
     delete autofillRequests[tabId]; // Clean up
