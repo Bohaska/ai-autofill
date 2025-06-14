@@ -13,6 +13,20 @@ function isElementVisible(el: Element): boolean {
   );
 }
 
+// Helper to check if an element contains only text nodes as children
+function hasOnlyTextNodeChildren(element: HTMLElement): boolean {
+  if (!element.hasChildNodes()) {
+    return true; // No children, so effectively only text nodes (or none)
+  }
+  for (let i = 0; i < element.childNodes.length; i++) {
+    const child = element.childNodes[i];
+    if (child.nodeType !== Node.TEXT_NODE) {
+      return false; // Found a non-text node child
+    }
+  }
+  return true; // All children are text nodes
+}
+
 // Function to get a robust XPath for an element
 function getElementXPath(element: Element): string {
   if (element.id !== '') {
@@ -135,8 +149,8 @@ function extractPageContext() {
           const tagName = el.tagName.toUpperCase();
           // Heuristic to avoid capturing text already covered by form field labels or redundant text
           const isFormRelated = el.closest('label, input, textarea, select');
-          // Check if tag is in whitelist and text is meaningful (length > 1 to allow short labels/titles)
-          if (text && text.length > 1 && TEXT_EXTRACTION_TAGS_WHITELIST.has(tagName) && !isFormRelated) {
+          // Check if tag is in whitelist, text is meaningful, not form-related, and element only contains text nodes
+          if (text && text.length > 1 && TEXT_EXTRACTION_TAGS_WHITELIST.has(tagName) && !isFormRelated && hasOnlyTextNodeChildren(el)) {
             pageContextItems.push({
               type: 'text',
               domOrder: currentDomOrder,
@@ -149,11 +163,12 @@ function extractPageContext() {
     } else if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent?.trim();
       const parentElement = node.parentElement;
-      // Ensure parent is visible, its tag is in whitelist, and text is meaningful
+      // Ensure parent is visible, its tag is in whitelist, text is meaningful, not form-related, and parent only contains text nodes
       if (text && text.length > 1 && parentElement && isElementVisible(parentElement)) {
         const parentTagName = parentElement.tagName.toUpperCase();
         if (TEXT_EXTRACTION_TAGS_WHITELIST.has(parentTagName) &&
-            !parentElement.matches('input, textarea, select, label')) { // Avoid text within form elements/labels
+            !parentElement.matches('input, textarea, select, label') && // Avoid text within form elements/labels
+            hasOnlyTextNodeChildren(parentElement)) { // Add this condition
           pageContextItems.push({
             type: 'text',
             domOrder: currentDomOrder,
