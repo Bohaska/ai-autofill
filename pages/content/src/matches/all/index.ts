@@ -175,12 +175,15 @@ function extractPageContext() {
 
 
 // Function to execute actions received from the background script
-async function executeActions(actions: any[]) {
+async function executeActions(actions: any[], sendResponse: (response?: any) => void) {
   const actionHandlers: { [key: string]: (element: HTMLElement, args: any) => void } = {
     fill_text_input: (element, args) => fillTextInput(element as HTMLInputElement | HTMLTextAreaElement, args.value),
     select_dropdown_option: (element, args) => selectDropdownOption(element as HTMLSelectElement, args.value),
     check_radio_or_checkbox: (element, args) => checkRadioOrCheckbox(element as HTMLInputElement, args.checked),
   };
+
+  let success = true;
+  let errorMessage = '';
 
   for (const action of actions) {
     const { name: tool_name, args } = action; // Gemini returns 'name' for the tool name
@@ -193,11 +196,16 @@ async function executeActions(actions: any[]) {
       element = result.singleNodeValue as HTMLElement | null;
     } catch (e) {
       console.warn(`Error evaluating XPath '${selector}':`, e);
+      success = false;
+      errorMessage = `Error evaluating XPath '${selector}': ${e instanceof Error ? e.message : String(e)}`;
+      break; // Stop on first critical error
     }
 
     if (!element) {
       console.warn(`Element not found for selector: ${selector}`);
-      continue;
+      success = false;
+      errorMessage = `Element not found for selector: ${selector}`;
+      break; // Stop on first critical error
     }
 
     try {
@@ -206,7 +214,9 @@ async function executeActions(actions: any[]) {
         handler(element, args);
       } else {
         console.warn(`Unknown tool_name: ${tool_name}`);
-        continue;
+        success = false;
+        errorMessage = `Unknown tool_name: ${tool_name}`;
+        break; // Stop on first critical error
       }
 
       // Add temporary visual feedback
@@ -218,9 +228,21 @@ async function executeActions(actions: any[]) {
 
     } catch (e) {
       console.error(`Error executing action '${tool_name}' on element with selector '${selector}':`, e);
+      success = false;
+      errorMessage = `Error executing action '${tool_name}' on element with selector '${selector}': ${e instanceof Error ? e.message : String(e)}`;
+      break; // Stop on first critical error
     }
   }
+
+  // Send a message to the background script indicating completion
   chrome.runtime.sendMessage({ type: 'FILL_COMPLETE' });
+
+  // Send response back to the background script for the EXECUTE_ACTIONS message
+  if (success) {
+    sendResponse({ success: true });
+  } else {
+    sendResponse({ success: false, error: errorMessage });
+  }
 }
 
 // Listen for messages from the background script
@@ -230,7 +252,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.runtime.sendMessage({ type: 'FORM_DATA_EXTRACTED', payload: pageContext });
     return true; // Indicates async response
   } else if (message.type === 'EXECUTE_ACTIONS') {
-    executeActions(message.payload);
+    executeActions(message.payload, sendResponse); // Pass sendResponse
     return true; // Indicates async response
   }
 });
