@@ -1,5 +1,18 @@
 import 'webextension-polyfill';
 
+// Helper to check if an element is visible
+function isElementVisible(el: Element): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  const style = window.getComputedStyle(el);
+  return (
+    style.display !== 'none' &&
+    style.visibility !== 'hidden' &&
+    style.opacity !== '0' &&
+    el.offsetWidth > 0 &&
+    el.offsetHeight > 0
+  );
+}
+
 // Function to get a robust XPath for an element
 function getElementXPath(element: Element): string {
   if (element.id !== '') {
@@ -23,59 +36,6 @@ function getElementXPath(element: Element): string {
   return ''; // Fallback if no parent or unique path found
 }
 
-// Function to extract form data from the current page
-function extractFormData() {
-  const formElements: any[] = [];
-  document.querySelectorAll('input, textarea, select').forEach(element => {
-    const el = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-    const data: any = {
-      tagName: el.tagName.toLowerCase(),
-      type: el.type || el.tagName.toLowerCase(), // 'input' type can be missing
-      id: el.id,
-      name: el.name,
-      placeholder: el.placeholder,
-      value: el.value,
-      selector: getElementXPath(el), // Use XPath for robust selection
-    };
-
-    // Get associated label text
-    let labelText = '';
-    if (el.labels && el.labels.length > 0) {
-      labelText = el.labels[0].textContent || '';
-    } else {
-      // Look for sibling or parent labels
-      let current = el.previousElementSibling;
-      while (current) {
-        if (current.tagName.toLowerCase() === 'label') {
-          labelText = current.textContent || '';
-          break;
-        }
-        current = current.previousElementSibling;
-      }
-      if (!labelText && el.parentElement?.tagName.toLowerCase() === 'label') {
-        labelText = el.parentElement.textContent || '';
-      }
-    }
-    data.labelText = labelText.trim();
-
-    // Get aria-label or aria-labelledby
-    data.ariaLabel = el.getAttribute('aria-label');
-    data.ariaLabelledBy = el.getAttribute('aria-labelledby');
-
-    if (el.tagName.toLowerCase() === 'select') {
-      data.options = Array.from((el as HTMLSelectElement).options).map(opt => ({
-        text: opt.textContent,
-        value: opt.value,
-      }));
-    } else if (el.type === 'radio' || el.type === 'checkbox') {
-      data.checked = (el as HTMLInputElement).checked;
-    }
-
-    formElements.push(data);
-  });
-  return formElements;
-}
-
 // Helper functions for specific actions
 function fillTextInput(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
   element.value = value;
@@ -93,6 +53,105 @@ function checkRadioOrCheckbox(element: HTMLInputElement, checked: boolean) {
   element.dispatchEvent(new Event('click', { bubbles: true })); // Click often triggers more reliably for checkboxes/radios
   element.dispatchEvent(new Event('change', { bubbles: true }));
 }
+
+// Function to extract all relevant page content (form elements and surrounding text)
+function extractPageContext() {
+  const pageContextItems: any[] = [];
+  let domOrderCounter = 0;
+
+  const traverse = (node: Node) => {
+    if (!node) return;
+
+    const currentDomOrder = domOrderCounter++;
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+
+      if (isElementVisible(el)) {
+        // Check if it's a form element
+        if (el.matches('input, textarea, select')) {
+          const data: any = {
+            tagName: el.tagName.toLowerCase(),
+            type: (el as HTMLInputElement).type || el.tagName.toLowerCase(),
+            id: el.id,
+            name: el.name,
+            placeholder: (el as HTMLInputElement).placeholder,
+            value: (el as HTMLInputElement).value,
+            selector: getElementXPath(el),
+            domOrder: currentDomOrder,
+          };
+
+          // Get associated label text
+          let labelText = '';
+          if ((el as HTMLInputElement).labels && (el as HTMLInputElement).labels.length > 0) {
+            labelText = (el as HTMLInputElement).labels[0].textContent || '';
+          } else {
+            let current = el.previousElementSibling;
+            while (current) {
+              if (current.tagName.toLowerCase() === 'label') {
+                labelText = current.textContent || '';
+                break;
+              }
+              current = current.previousElementSibling;
+            }
+            if (!labelText && el.parentElement?.tagName.toLowerCase() === 'label') {
+              labelText = el.parentElement.textContent || '';
+            }
+          }
+          data.labelText = labelText.trim();
+
+          // Get aria-label or aria-labelledby
+          data.ariaLabel = el.getAttribute('aria-label');
+          data.ariaLabelledBy = el.getAttribute('aria-labelledby');
+
+          if (el.tagName.toLowerCase() === 'select') {
+            data.options = Array.from((el as HTMLSelectElement).options).map(opt => ({
+              text: opt.textContent,
+              value: opt.value,
+            }));
+          } else if (el.type === 'radio' || el.type === 'checkbox') {
+            data.checked = (el as HTMLInputElement).checked;
+          }
+          pageContextItems.push({ type: 'formField', domOrder: currentDomOrder, selector: data.selector, formData: data });
+        } else {
+          // Extract text content from non-form elements if visible and has meaningful text
+          const text = el.textContent?.trim();
+          // Heuristic to avoid capturing text already covered by form field labels or redundant text
+          const isFormRelated = el.closest('label, input, textarea, select');
+          if (text && text.length > 0 && !isFormRelated && !['SCRIPT', 'STYLE'].includes(el.tagName.toUpperCase())) {
+            pageContextItems.push({
+              type: 'text',
+              domOrder: currentDomOrder,
+              selector: getElementXPath(el),
+              text: text,
+            });
+          }
+        }
+      }
+    } else if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent?.trim();
+      const parentElement = node.parentElement;
+      if (text && text.length > 0 && parentElement && isElementVisible(parentElement) &&
+          !['SCRIPT', 'STYLE'].includes(parentElement.tagName.toUpperCase()) &&
+          !parentElement.matches('input, textarea, select, label')) { // Avoid text within form elements/labels
+        pageContextItems.push({
+          type: 'text',
+          domOrder: currentDomOrder,
+          selector: getElementXPath(parentElement), // Use parent's XPath for context
+          text: text,
+        });
+      }
+    }
+
+    // Recursively traverse children
+    node.childNodes.forEach(traverse);
+  };
+
+  traverse(document.body); // Start traversal from the body
+
+  return pageContextItems;
+}
+
 
 // Function to execute actions received from the background script
 async function executeActions(actions: any[]) {
@@ -146,8 +205,8 @@ async function executeActions(actions: any[]) {
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'EXTRACT_FORM_DATA') {
-    const formData = extractFormData();
-    chrome.runtime.sendMessage({ type: 'FORM_DATA_EXTRACTED', payload: formData });
+    const pageContext = extractPageContext(); // Call the new function
+    chrome.runtime.sendMessage({ type: 'FORM_DATA_EXTRACTED', payload: pageContext });
     return true; // Indicates async response
   } else if (message.type === 'EXECUTE_ACTIONS') {
     executeActions(message.payload);
