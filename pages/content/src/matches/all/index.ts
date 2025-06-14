@@ -167,7 +167,7 @@ function extractPageContext() {
       if (text && text.length > 1 && parentElement && isElementVisible(parentElement)) {
         const parentTagName = parentElement.tagName.toUpperCase();
         if (TEXT_EXTRACTION_TAGS_WHITELIST.has(parentTagName) &&
-            !parentElement.matches('input, textarea, select, label') && // Avoid text within form elements/labels
+            !parentElement.matches('input, textarea, select, label, option') && // Avoid text within form elements/labels, and option elements
             hasOnlyTextNodeChildren(parentElement)) { // Add this condition
           pageContextItems.push({
             type: 'text',
