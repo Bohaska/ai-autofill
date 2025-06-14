@@ -44,11 +44,11 @@ async function handleAutofillRequest(payload: { tabId: number; profile: any; api
   }
 }
 
-async function handleFormDataExtracted(formData: any[], tabId: number | undefined, sendResponse: (response?: any) => void) {
+async function handleFormDataExtracted(pageContextItems: any[], tabId: number | undefined, sendResponse: (response?: any) => void) {
   if (!tabId || !autofillRequests[tabId]) {
     console.error('No active autofill request found for this tab.');
     chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Error: No active autofill request.' });
-    sendResponse({ success: false, error: 'No active autofill request.' }); // Send error response
+    sendResponse({ success: false, error: 'No active autofill request.' }); // Send immediate error response
     return;
   }
 
@@ -67,9 +67,34 @@ async function handleFormDataExtracted(formData: any[], tabId: number | undefine
   const ai = new GoogleGenAI({ apiKey: apiKey });
   const model = ai.models;
 
+  // Sort page context items by their DOM order
+  pageContextItems.sort((a, b) => a.domOrder - b.domOrder);
+
+  let pageStructureDescription = '';
+  let formElementsForPrompt: any[] = [];
+
+  pageContextItems.forEach(item => {
+    if (item.type === 'text') {
+      pageStructureDescription += `Text: "${item.text}"\n`;
+    } else if (item.type === 'formField') {
+      const formData = item.formData;
+      formElementsForPrompt.push(formData); // Collect form elements separately for the structured part
+      pageStructureDescription += `Form Field (Type: ${formData.type}, Name: ${formData.name || 'N/A'}, Label: "${formData.labelText || formData.ariaLabel || 'N/A'}")\n`;
+      pageStructureDescription += `  Selector: ${formData.selector}\n`;
+      if (formData.value) pageStructureDescription += `  Current Value: "${formData.value}"\n`;
+      if (formData.placeholder) pageStructureDescription += `  Placeholder: "${formData.placeholder}"\n`;
+      if (formData.options) pageStructureDescription += `  Options: ${formData.options.map((opt: any) => opt.text).join(', ')}\n`;
+      if (formData.type === 'radio' || formData.type === 'checkbox') pageStructureDescription += `  Checked: ${formData.checked}\n`;
+      pageStructureDescription += `\n`; // Add a newline for readability
+    }
+  });
+
   const prompt = `You are an AI assistant specialized in intelligently filling web forms.
-Here is the current state of the web page's form elements (including their unique selectors for interaction):
-${JSON.stringify(formData, null, 2)}
+Here is a description of the web page's structure, including text content and form elements, ordered by their appearance in the DOM:
+${pageStructureDescription}
+
+Here is a more structured list of the form elements found on the page, including their unique selectors for interaction:
+${JSON.stringify(formElementsForPrompt, null, 2)}
 
 Here is the user's personal information, provided as a JSON object. Use these structured details to fill the form:
 ${JSON.stringify(profile, null, 2)}
@@ -80,7 +105,7 @@ function fill_text_input(selector: string, value: string, field_type: string)
 function select_dropdown_option(selector: string, value: string)
 function check_radio_or_checkbox(selector: string, checked: boolean)
 
-Based on the form elements and user data, suggest the next action(s) to take using the available tools. Output your action(s) as a JSON array of tool calls.
+Based on the form elements, the surrounding text context, and user data, suggest the next action(s) to take using the available tools. Output your action(s) as a JSON array of tool calls.
 `;
 
   try {
