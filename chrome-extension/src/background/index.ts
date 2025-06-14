@@ -132,7 +132,7 @@ Based on the form elements and user data, suggest the next action(s) to take usi
     });
 
     // Log the LLM response
-    const responseText = result.text();
+    const responseText = result.text;
     console.log('Gemini LLM Raw Response Text:', responseText);
     const toolCalls = result.functionCalls;
     console.log('Gemini LLM Function Calls:', toolCalls);
