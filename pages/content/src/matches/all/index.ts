@@ -103,7 +103,7 @@ async function executeActions(actions: any[]) {
   };
 
   for (const action of actions) {
-    const { tool_name, args } = action;
+    const { name: tool_name, args } = action; // Gemini returns 'name' for the tool name
     const selector = args.selector;
 
     let element: HTMLElement | null = null;
