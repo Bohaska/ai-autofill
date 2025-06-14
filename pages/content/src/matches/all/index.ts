@@ -62,6 +62,17 @@ function extractPageContext() {
   const traverse = (node: Node) => {
     if (!node) return;
 
+    // Skip script, style, noscript, and comment nodes entirely
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tagName = el.tagName.toUpperCase();
+      if (['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(tagName)) {
+        return; // Skip this node and its children
+      }
+    } else if (node.nodeType === Node.COMMENT_NODE) {
+      return; // Skip comment nodes
+    }
+
     const currentDomOrder = domOrderCounter++;
 
     if (node.nodeType === Node.ELEMENT_NODE) {
@@ -118,7 +129,8 @@ function extractPageContext() {
           const text = el.textContent?.trim();
           // Heuristic to avoid capturing text already covered by form field labels or redundant text
           const isFormRelated = el.closest('label, input, textarea, select');
-          if (text && text.length > 0 && !isFormRelated && !['SCRIPT', 'STYLE'].includes(el.tagName.toUpperCase())) {
+          // Add a minimum length check for general text content
+          if (text && text.length > 10 && !isFormRelated) {
             pageContextItems.push({
               type: 'text',
               domOrder: currentDomOrder,
@@ -131,15 +143,18 @@ function extractPageContext() {
     } else if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent?.trim();
       const parentElement = node.parentElement;
-      if (text && text.length > 0 && parentElement && isElementVisible(parentElement) &&
-          !['SCRIPT', 'STYLE'].includes(parentElement.tagName.toUpperCase()) &&
-          !parentElement.matches('input, textarea, select, label')) { // Avoid text within form elements/labels
-        pageContextItems.push({
-          type: 'text',
-          domOrder: currentDomOrder,
-          selector: getElementXPath(parentElement), // Use parent's XPath for context
-          text: text,
-        });
+      // Ensure parent is visible and not a script/style/label/form element, and text is meaningful
+      if (text && text.length > 10 && parentElement && isElementVisible(parentElement)) {
+        const parentTagName = parentElement.tagName.toUpperCase();
+        if (!['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(parentTagName) &&
+            !parentElement.matches('input, textarea, select, label')) {
+          pageContextItems.push({
+            type: 'text',
+            domOrder: currentDomOrder,
+            selector: getElementXPath(parentElement),
+            text: text,
+          });
+        }
       }
     }
 
