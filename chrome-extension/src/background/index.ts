@@ -183,14 +183,22 @@ Based on the form elements, the surrounding text context, and user data, suggest
       try {
         const errorBody = JSON.parse(await error.response.text());
         const quotaMetric = errorBody.error?.details?.[0]?.violations?.[0]?.quotaMetric;
+        const retryDelay = errorBody.error?.details?.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo')?.retryDelay;
+
         if (quotaMetric) {
           userFriendlyMessage = `Gemini API Quota Exceeded. Please try again later or check your Google Cloud project's billing and quota limits.`;
+          if (retryDelay) {
+            userFriendlyMessage += ` Recommended wait time: ${retryDelay}.`;
+          }
         } else {
           userFriendlyMessage = `Gemini API Quota Exceeded (429).`;
+          if (retryDelay) {
+            userFriendlyMessage += ` Recommended wait time: ${retryDelay}.`;
+          }
         }
       } catch (parseError) {
         console.warn('Failed to parse Gemini 429 error response:', parseError);
-        userFriendlyMessage = `Gemini API Quota Exceeded (429).`;
+        userFriendlyMessage = `Gemini API Quota Exceeded (429). Could not determine retry time.`;
       }
     }
 
