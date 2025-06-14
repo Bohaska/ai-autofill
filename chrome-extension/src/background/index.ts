@@ -62,6 +62,9 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
     return;
   }
 
+  // Acknowledge receipt to the content script immediately.
+  // The actual result of the Gemini call will be communicated via chrome.tabs.sendMessage later.
+  sendResponse({ success: true, message: 'Form data received, processing with Gemini...' });
   chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Sending data to Gemini...' });
 
   const ai = new GoogleGenAI({ apiKey: apiKey });
@@ -165,16 +168,17 @@ Based on the form elements, the surrounding text context, and user data, suggest
     if (toolCalls && toolCalls.length > 0) {
       chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Filling fields...' });
       await chrome.tabs.sendMessage(tabId, { type: 'EXECUTE_ACTIONS', payload: toolCalls });
-      sendResponse({ success: true, actionsSent: true }); // Indicate success and actions sent
+      // No sendResponse here for the original message, it was already sent.
+      // The content script will receive EXECUTE_ACTIONS directly.
     } else {
       chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'No fields to fill or Gemini returned no actions.' });
-      sendResponse({ success: true, actionsSent: false }); // Indicate success, but no actions
+      // No sendResponse here.
     }
 
   } catch (error) {
     console.error('Gemini API call failed:', error);
     chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: `Error from Gemini: ${error instanceof Error ? error.message : String(error)}` });
-    sendResponse({ success: false, error: `Gemini API call failed: ${error instanceof Error ? error.message : String(error)}` }); // Send error response
+    // No sendResponse here.
   } finally {
     delete autofillRequests[tabId]; // Clean up
   }
