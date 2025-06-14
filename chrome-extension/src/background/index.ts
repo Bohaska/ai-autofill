@@ -92,9 +92,6 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
       if (formData.placeholder) fieldDescription += `, Placeholder: "${formData.placeholder}"`;
       if (formData.value) fieldDescription += `, Current Value: "${formData.value}"`;
       if (formData.type === 'radio' || formData.type === 'checkbox') fieldDescription += `, Checked: ${formData.checked}`;
-      if (formData.options && formData.options.length > 0) {
-        fieldDescription += `, Options: [${formData.options.map((opt: any) => `"${opt.text}"`).join(', ')}]`;
-      }
       fieldDescription += `)\n`;
       fieldDescription += `  Selector: ${formData.selector}\n`;
       pageStructureDescription += fieldDescription;
