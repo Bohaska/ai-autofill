@@ -3,8 +3,10 @@
 <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/99cb6303-64e4-4bed-bf3f-35735353e6de" />
     <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/a5dbf71c-c509-4c4f-80f4-be88a1943b0a" />
-    <img alt="Logo" src="https://github.com/user-attachments/assets/99cb6303-64e4-4bed-bf3f-35735353e6de" />
+    <img alt="AI Autofill Logo" src="https://github.com/user-attachments/assets/99cb6303-64e4-4bed-bf3f-35735353e6de" />
 </picture>
+
+# AI Autofill
 
 ![](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![](https://img.shields.io/badge/Typescript-3178C6?style=flat-square&logo=typescript&logoColor=white)
@@ -15,7 +17,7 @@
 
 <a href="https://discord.gg/4ERQ6jgV9a" target="_blank"><img src="https://discord.com/api/guilds/1263404974830915637/widget.png"/></a>
 
-> This boilerplate
+> This project
 > has [Legacy version](https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite/tree/legacy)
 
 </div>
@@ -56,8 +58,7 @@
 
 ## Intro
 
-This boilerplate helps you create Chrome/Firefox extensions using React and Typescript. It improves
-the build speed and development experience by using Vite and Turborepo.
+AI Autofill is a powerful Chrome/Firefox extension that uses AI to intelligently autofill forms. Built with React, Typescript, Vite, and Turborepo, it offers a fast and seamless experience for managing your online data.
 
 ## Features
 
@@ -77,11 +78,9 @@ the build speed and development experience by using Vite and Turborepo.
 
 1. Clone this repository.( ```git clone https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite``` )
 2. Ensure your node version is >= than in `.nvmrc` file, recommend to use [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#intro)
-3. Edit `/packages/i18n/locales/`{your locale(s)}/`messages.json`
-4. In the objects `extensionDescription` and `extensionName`, change the `message` fields (leave `description` alone)
-5. Install pnpm globally: `npm install -g pnpm`
-6. Run `pnpm install`
-7. Check if you have that configuration in your IDE/Editor:
+3. Install pnpm globally: `npm install -g pnpm`
+4. Run `pnpm install`
+5. Check if you have that configuration in your IDE/Editor:
     - <b>VS Code</b>:
         - Installed [ESLint extension](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
         - Installed [Prettier extension](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
@@ -94,7 +93,7 @@ the build speed and development experience by using Vite and Turborepo.
       - Configured [Prettier](https://prettier.io/docs/en/webstorm.html)
       - Optional, but useful `File | Settings | Tools | Actions on Save`\
       -> `Optimize imports` and `Reformat code`
-8. Run `pnpm update-version <version>` for change the `version` to the desired version of your extension.
+6. Run `pnpm update-version <version>` for change the `version` to the desired version of your extension.
 
 > [!IMPORTANT]
 > On Windows, make sure you have WSL enabled and Linux distribution (e.g. Ubuntu) installed on WSL.
@@ -151,9 +150,9 @@ Read: [Env Documentation](packages/env/README.md)
 
 ## Boilerplate structure <a name="structure"></a>
 
-### Chrome extension <a name="structure-chrome-extension"></a>
+### AI Autofill Extension <a name="structure-chrome-extension"></a>
 
-The extension lives in the `chrome-extension` directory and includes the following files:
+The AI Autofill extension lives in the `chrome-extension` directory and includes the following files:
 
 - [`manifest.ts`](chrome-extension/manifest.ts) - script that outputs the `manifest.json`
 - [`src/background`](chrome-extension/src/background) - [background script](https://developer.chrome.com/docs/extensions/mv3/background_pages/)
@@ -161,8 +160,8 @@ The extension lives in the `chrome-extension` directory and includes the followi
 - [`public`](chrome-extension/public/) - icons referenced in the manifest; content CSS for user's page injection
 
 > [!IMPORTANT]
-> To facilitate development, the boilerplate is configured to "Read and change all your data on all websites".
-> In production, it's best practice to limit the premissions to only the strictly necessary websites. See
+> To facilitate development, the extension is configured to "Read and change all your data on all websites".
+> In production, it's best practice to limit the permissions to only the strictly necessary websites. See
 > [Declaring permissions](https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions)
 > and edit `manifest.js` accordingly.
 
@@ -190,7 +189,7 @@ Code that is transpiled to be part of the extension lives in the [pages](pages) 
 
 ### Packages <a name="structure-packages"></a>
 
-Some shared packages:
+Shared packages for the AI Autofill project:
 
 - `dev-utils` - utilities for Chrome extension development (manifest-parser, logger)
 - `env` - exports object which contain all environment variables from `.env` and dynamically declared
@@ -205,7 +204,7 @@ Some shared packages:
 
 Other useful packages:
 
-- `zipper` - run `pnpm zip` to pack the `dist` folder into `extension-YYYYMMDD-HHmmss.zip` inside the newly created
+- `zipper` - run `pnpm zip` to pack the `dist` folder into `ai-autofill-YYYYMMDD-HHmmss.zip` inside the newly created
   `dist-zip`
 - `module-manager` - run `pnpm module-manager` to enable/disable modules
 - `e2e` - run `pnpm e2e` for end-to-end tests of your zipped extension on different browsers
@@ -235,7 +234,7 @@ Also, suggest new features or share any challenges you've faced while developing
 
 ## Debugging
 
-If you're debugging one, you can use [Brie](https://go.briehq.com/github?utm_source=CEB) lets you capture screenshots, errors, and network activity, making it easier for us to help.
+If you're debugging AI Autofill, you can use [Brie](https://go.briehq.com/github?utm_source=CEB) lets you capture screenshots, errors, and network activity, making it easier for us to help.
 
 ## Reference
 
@@ -247,20 +246,20 @@ If you're debugging one, you can use [Brie](https://go.briehq.com/github?utm_sou
 
 ## Star History <a name="star-history"></a>
 
-<a href="https://star-history.com/#Jonghakseo/chrome-extension-boilerplate-react-vite&Date">
+<a href="https://star-history.com/#Jonghakseo/ai-autofill&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Jonghakseo/chrome-extension-boilerplate-react-vite&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Jonghakseo/chrome-extension-boilerplate-react-vite&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Jonghakseo/chrome-extension-boilerplate-react-vite&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Jonghakseo/ai-autofill&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Jonghakseo/ai-autofill&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Jonghakseo/ai-autofill&type=Date" />
  </picture>
 </a>
 
 ## Contributors <a name="contributors"></a>
 
-This Boilerplate is made possible thanks to all of its contributors.
+AI Autofill is made possible thanks to all of its contributors.
 
-<a href="https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite/graphs/contributors">
-  <img width="500px" src="https://contrib.rocks/image?repo=Jonghakseo/chrome-extension-boilerplate-react-vite" alt="All Contributors"/>
+<a href="https://github.com/Jonghakseo/ai-autofill/graphs/contributors">
+  <img width="500px" src="https://contrib.rocks/image?repo=Jonghakseo/ai-autofill" alt="All Contributors"/>
 </a>
 
 ---

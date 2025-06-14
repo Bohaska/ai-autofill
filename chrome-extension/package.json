@@ -1,7 +1,7 @@
 {
-  "name": "chrome-extension",
+  "name": "ai-autofill",
   "version": "0.5.0",
-  "description": "chrome extension - core settings",
+  "description": "AI Autofill - AI-powered form autofill extension",
   "type": "module",
   "private": true,
   "sideEffects": false,
