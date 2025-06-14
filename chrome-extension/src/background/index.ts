@@ -82,11 +82,22 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
     } else if (item.type === 'formField') {
       const formData = item.formData;
       formElementsForPrompt.push(formData); // Collect form elements separately for the structured part
-      pageStructureDescription += `Form Field (Type: ${formData.type}, Name: ${formData.name || 'N/A'}, Label: "${formData.labelText || formData.ariaLabel || 'N/A'}")\n`;
-      pageStructureDescription += `  Selector: ${formData.selector}\n`;
-      if (formData.value) pageStructureDescription += `  Current Value: "${formData.value}"\n`;
-      if (formData.placeholder) pageStructureDescription += `  Placeholder: "${formData.placeholder}"\n`;
-      if (formData.type === 'radio' || formData.type === 'checkbox') pageStructureDescription += `  Checked: ${formData.checked}\n`;
+
+      let fieldDescription = `Form Field (Type: ${formData.type}`;
+      if (formData.id) fieldDescription += `, ID: "${formData.id}"`;
+      if (formData.name) fieldDescription += `, Name: "${formData.name}"`;
+      if (formData.labelText) fieldDescription += `, Label: "${formData.labelText}"`;
+      else if (formData.ariaLabel) fieldDescription += `, Aria-Label: "${formData.ariaLabel}"`;
+      else if (formData.ariaLabelledBy) fieldDescription += `, Aria-LabelledBy: "${formData.ariaLabelledBy}"`;
+      if (formData.placeholder) fieldDescription += `, Placeholder: "${formData.placeholder}"`;
+      if (formData.value) fieldDescription += `, Current Value: "${formData.value}"`;
+      if (formData.type === 'radio' || formData.type === 'checkbox') fieldDescription += `, Checked: ${formData.checked}`;
+      if (formData.options && formData.options.length > 0) {
+        fieldDescription += `, Options: [${formData.options.map((opt: any) => `"${opt.text}"`).join(', ')}]`;
+      }
+      fieldDescription += `)\n`;
+      fieldDescription += `  Selector: ${formData.selector}\n`;
+      pageStructureDescription += fieldDescription;
       pageStructureDescription += `\n`; // Add a newline for readability
     }
   });
