@@ -39,8 +39,13 @@ const Popup = () => {
   };
 
   const handleSaveProfile = async () => {
-    await chrome.storage.local.set({ profileText: profileText, geminiApiKey: geminiApiKey });
+    await chrome.storage.local.set({ profileText: profileText });
     setStatus('Profile saved!');
+  };
+
+  const handleSaveApiKey = async () => {
+    await chrome.storage.local.set({ geminiApiKey: geminiApiKey });
+    setStatus('API Key saved!');
   };
 
   const handleAutofillNow = async () => {
@@ -104,6 +109,11 @@ Gender: Male"
             onChange={e => setGeminiApiKey(e.target.value)}
             className="w-full rounded border p-1"
           />
+          <button
+            onClick={handleSaveApiKey}
+            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
+            Save API Key
+          </button>
           <p className="mt-1 text-xs text-gray-600">
             Your API key is stored locally in your browser. Get one from{' '}
             <a
