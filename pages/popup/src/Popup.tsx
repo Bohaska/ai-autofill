@@ -9,13 +9,32 @@ const Popup = () => {
   const [profileText, setProfileText] = useState<string>('');
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
   const [status, setStatus] = useState<string>('Ready to autofill.');
+  const [profiles, setProfiles] = useState<Record<string, string>>({}); // New state for multiple profiles
+  const [selectedProfileName, setSelectedProfileName] = useState<string>(''); // New state for selected profile
+  const [newProfileName, setNewProfileName] = useState<string>(''); // New state for naming new profiles
 
   useEffect(() => {
-    // Load profile and API key from storage on component mount
-    chrome.storage.local.get(['profileText', 'geminiApiKey'], result => {
-      if (result.profileText) {
-        setProfileText(result.profileText);
+    // Load profiles, selected profile, and API key from storage on component mount
+    chrome.storage.local.get(['profiles', 'selectedProfileName', 'geminiApiKey'], result => {
+      const loadedProfiles = result.profiles || {};
+      setProfiles(loadedProfiles);
+
+      const loadedSelectedProfileName = result.selectedProfileName || '';
+      setSelectedProfileName(loadedSelectedProfileName);
+
+      if (loadedSelectedProfileName && loadedProfiles[loadedSelectedProfileName]) {
+        setProfileText(loadedProfiles[loadedSelectedProfileName]);
+      } else if (Object.keys(loadedProfiles).length > 0) {
+        // If no selected profile, but profiles exist, select the first one
+        const firstProfileName = Object.keys(loadedProfiles)[0];
+        setSelectedProfileName(firstProfileName);
+        setProfileText(loadedProfiles[firstProfileName]);
+        chrome.storage.local.set({ selectedProfileName: firstProfileName }); // Persist selection
+      } else {
+        // No profiles exist, clear profileText
+        setProfileText('');
       }
+
       if (result.geminiApiKey) {
         setGeminiApiKey(result.geminiApiKey);
       }
@@ -39,8 +58,63 @@ const Popup = () => {
   };
 
   const handleSaveProfile = async () => {
-    await chrome.storage.local.set({ profileText: profileText });
-    setStatus('Profile saved!');
+    if (!selectedProfileName) {
+      setStatus('Please select or create a profile to save.');
+      return;
+    }
+    const updatedProfiles = { ...profiles, [selectedProfileName]: profileText };
+    setProfiles(updatedProfiles);
+    await chrome.storage.local.set({ profiles: updatedProfiles });
+    setStatus(`Profile "${selectedProfileName}" saved!`);
+  };
+
+  const handleCreateNewProfile = async () => {
+    if (!newProfileName.trim()) {
+      setStatus('Please enter a name for the new profile.');
+      return;
+    }
+    if (profiles[newProfileName.trim()]) {
+      setStatus(`Profile "${newProfileName.trim()}" already exists. Please choose a different name or select it to edit.`);
+      return;
+    }
+
+    const newProfileContent = profileText || ''; // Use current text or empty string
+    const updatedProfiles = { ...profiles, [newProfileName.trim()]: newProfileContent };
+    setProfiles(updatedProfiles);
+    setSelectedProfileName(newProfileName.trim());
+    setProfileText(newProfileContent); // Set current text to new profile's content
+    setNewProfileName(''); // Clear new profile name input
+    await chrome.storage.local.set({ profiles: updatedProfiles, selectedProfileName: newProfileName.trim() });
+    setStatus(`New profile "${newProfileName.trim()}" created and selected!`);
+  };
+
+  const handleDeleteProfile = async () => {
+    if (!selectedProfileName) {
+      setStatus('No profile selected to delete.');
+      return;
+    }
+    if (Object.keys(profiles).length === 1) {
+      setStatus('Cannot delete the last profile. Please create another one first.');
+      return;
+    }
+
+    const { [selectedProfileName]: _, ...remainingProfiles } = profiles;
+    setProfiles(remainingProfiles);
+
+    const newSelectedName = Object.keys(remainingProfiles)[0] || '';
+    setSelectedProfileName(newSelectedName);
+    setProfileText(remainingProfiles[newSelectedName] || '');
+
+    await chrome.storage.local.set({ profiles: remainingProfiles, selectedProfileName: newSelectedName });
+    setStatus(`Profile "${selectedProfileName}" deleted.`);
+  };
+
+  const handleSelectProfile = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const name = e.target.value;
+    setSelectedProfileName(name);
+    setProfileText(profiles[name] || '');
+    await chrome.storage.local.set({ selectedProfileName: name });
+    setStatus(`Profile "${name}" selected.`);
   };
 
   const handleSaveApiKey = async () => {
@@ -62,6 +136,11 @@ const Popup = () => {
       return;
     }
 
+    if (!profileText) { // Ensure a profile is loaded
+      setStatus('Error: No profile data available for autofill. Please select or create a profile.');
+      return;
+    }
+
     // Send message to background script to start autofill
     chrome.runtime.sendMessage({
       type: 'AUTOFILL_REQUEST',
@@ -79,7 +158,52 @@ const Popup = () => {
         <h1 className="mb-4 text-xl font-bold">AI Autofill Pro</h1>
 
         <div className="mb-4 w-full">
-          <h2 className="mb-2 text-lg font-semibold">Your Profile (Plaintext)</h2>
+          <h2 className="mb-2 text-lg font-semibold">Manage Profiles</h2>
+          <div className="mb-2 flex items-center gap-2">
+            <select
+              value={selectedProfileName}
+              onChange={handleSelectProfile}
+              className="flex-grow rounded border p-1"
+            >
+              <option value="" disabled>
+                Select a profile
+              </option>
+              {Object.keys(profiles).map(name => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleDeleteProfile}
+              className="rounded bg-red-500 px-3 py-1 text-white hover:bg-red-600"
+              disabled={!selectedProfileName || Object.keys(profiles).length === 1}
+            >
+              Delete
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="New profile name"
+              value={newProfileName}
+              onChange={e => setNewProfileName(e.target.value)}
+              className="flex-grow rounded border p-1"
+            />
+            <button
+              onClick={handleCreateNewProfile}
+              className="rounded bg-green-500 px-3 py-1 text-white hover:bg-green-600"
+              disabled={!newProfileName.trim()}
+            >
+              Create New
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4 w-full">
+          <h2 className="mb-2 text-lg font-semibold">
+            Current Profile Content ({selectedProfileName || 'No Profile Selected'})
+          </h2>
           <textarea
             name="profileText"
             placeholder="Enter your personal information here, e.g.,
@@ -95,8 +219,10 @@ Gender: Male"
           />
           <button
             onClick={handleSaveProfile}
-            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
-            {t('saveProfileButton', 'Save Profile')}
+            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600"
+            disabled={!selectedProfileName}
+          >
+            {t('saveProfileButton', 'Save Current Profile')}
           </button>
         </div>
 
@@ -111,7 +237,8 @@ Gender: Male"
           />
           <button
             onClick={handleSaveApiKey}
-            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
+            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600"
+          >
             Save API Key
           </button>
           <p className="mt-1 text-xs text-gray-600">
@@ -120,7 +247,8 @@ Gender: Male"
               href="https://aistudio.google.com/app/apikey"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 hover:underline">
+              className="text-blue-500 hover:underline"
+            >
               Google AI Studio
             </a>
             .
@@ -129,7 +257,9 @@ Gender: Male"
 
         <button
           onClick={handleAutofillNow}
-          className="w-full rounded-lg bg-green-500 py-2 text-lg font-bold text-white shadow transition-colors duration-200 hover:bg-green-600">
+          className="w-full rounded-lg bg-green-500 py-2 text-lg font-bold text-white shadow transition-colors duration-200 hover:bg-green-600"
+          disabled={!profileText || !geminiApiKey}
+        >
           {t('autofillNowButton', 'Autofill Now')}
         </button>
 
