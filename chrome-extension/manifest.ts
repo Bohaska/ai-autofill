@@ -40,6 +40,7 @@ const manifest = {
     default_popup: 'popup/index.html',
     default_icon: 'icon-34.png',
   },
+  options_page: 'options/index.html',
   icons: {
     '128': 'icon-128.png',
   },
