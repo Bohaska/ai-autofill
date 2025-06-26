@@ -11,6 +11,4 @@ export type AiModelState = {
   model: string;
 };
 
-export type AiModelStorageType = BaseStorageType<AiModelState> & {
-  set: (model: string) => Promise<void>;
-};
+export type AiModelStorageType = BaseStorageType<AiModelState>;

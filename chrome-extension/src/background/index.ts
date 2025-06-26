@@ -30,7 +30,7 @@ async function handleAutofillRequest(payload: { tabId: number; profile: any; api
   const { selectedAiModel } = await chrome.storage.local.get('selectedAiModel');
 
   // Store the payload temporarily
-  autofillRequests[tabId] = { profile, apiKey, selectedAiModel: selectedAiModel || 'gemini-2.5-flash-lite' };
+  autofillRequests[tabId] = { profile, apiKey, selectedAiModel: selectedAiModel || 'gemini-2.5-flash-lite-preview-06-17' };
 
   try {
     // Send message to content script to extract form data

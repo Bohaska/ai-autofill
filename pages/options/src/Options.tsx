@@ -122,7 +122,7 @@ const Options = () => {
   const handleAiModelChange = useCallback(
     async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const model = e.target.value;
-      await aiModelStorage.set(model);
+      await aiModelStorage.set({ model });
       setStatus(`AI Model set to "${model}"!`);
     },
     [aiModelStorage],

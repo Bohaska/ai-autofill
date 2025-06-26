@@ -1,5 +1,5 @@
 import { createStorage, StorageEnum } from '../base/index.js';
-import type { AiModelStorageType, AiModelState } from '../base/index.js';
+import type { AiModelStorageType, AiModelState } from '../types.js';
 
 const storage = createStorage<AiModelState>(
   'ai-model-storage-key',
@@ -12,13 +12,4 @@ const storage = createStorage<AiModelState>(
   },
 );
 
-export const aiModelStorage: AiModelStorageType = {
-  ...storage,
-  set: async model => {
-    await storage.set(() => {
-      return {
-        model,
-      };
-    });
-  },
-};
+export const aiModelStorage = storage;
