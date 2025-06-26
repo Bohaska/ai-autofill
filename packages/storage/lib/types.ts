@@ -6,3 +6,11 @@ export type BaseStorageType<D> = {
   getSnapshot: () => D | null;
   subscribe: (listener: () => void) => () => void;
 };
+
+export type AiModelState = {
+  model: string;
+};
+
+export type AiModelStorageType = BaseStorageType<AiModelState> & {
+  set: (model: string) => Promise<void>;
+};

@@ -2,7 +2,7 @@ import 'webextension-polyfill';
 import { GoogleGenAI, Type } from '@google/genai';
 
 // Temporary storage for autofill requests, as service workers are stateless
-const autofillRequests: Record<number, { profile: any; apiKey: string }> = {}; // Change type to 'any' for structured profile
+const autofillRequests: Record<number, { profile: any; apiKey: string; selectedAiModel: string }> = {}; // Change type to 'any' for structured profile
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Mark sendResponse as asynchronous to allow handlers to use it later
@@ -27,8 +27,10 @@ async function handleAutofillRequest(payload: { tabId: number; profile: any; api
     return;
   }
 
+  const { selectedAiModel } = await chrome.storage.local.get('selectedAiModel');
+
   // Store the payload temporarily
-  autofillRequests[tabId] = { profile, apiKey };
+  autofillRequests[tabId] = { profile, apiKey, selectedAiModel: selectedAiModel || 'gemini-2.5-flash-lite' };
 
   try {
     // Send message to content script to extract form data
@@ -52,7 +54,7 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
     return;
   }
 
-  const { profile, apiKey } = autofillRequests[tabId];
+  const { profile, apiKey, selectedAiModel } = autofillRequests[tabId];
 
   if (!apiKey) {
     console.error('Gemini API Key is missing.');
@@ -99,28 +101,11 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
     }
   });
 
-  const prompt = `You are an AI assistant specialized in intelligently filling web forms.
-Here is a description of the web page's structure, including text content and form elements, ordered by their appearance in the DOM:
-${pageStructureDescription}
-
-Here is a more structured list of the form elements found on the page, including their unique selectors for interaction:
-${JSON.stringify(formElementsForPrompt, null, 2)}
-
-Here is the user's personal information. Use these details to fill the form:
-${profile}
-
-Your goal is to fill out this form accurately using the provided user information.
-You have the following tools available:
-function fill_text_input(selector: string, value: string, field_type: string)
-function select_dropdown_option(selector: string, value: string)
-function check_radio_or_checkbox(selector: string, checked: boolean)
-
-Based on the form elements, the surrounding text context, and user data, suggest the next action(s) to take using the available tools. Output your action(s) as a JSON array of tool calls.
-`;
+  const prompt = `You are an AI assistant specialized in intelligently filling web forms.\nHere is a description of the web page's structure, including text content and form elements, ordered by their appearance in the DOM:\n${pageStructureDescription}\n\nHere is a more structured list of the form elements found on the page, including their unique selectors for interaction:\n${JSON.stringify(formElementsForPrompt, null, 2)}\n\nHere is the user's personal information. Use these details to fill the form:\n${profile}\n\nYour goal is to fill out this form accurately using the provided user information.\nYou have the following tools available:\nfunction fill_text_input(selector: string, value: string, field_type: string)\nfunction select_dropdown_option(selector: string, value: string)\nfunction check_radio_or_checkbox(selector: string, checked: boolean)\n\nBased on the form elements, the surrounding text context, and user data, suggest the next action(s) to take using the available tools. Output your action(s) as a JSON array of tool calls.\n`;
 
   try {
     const result = await model.generateContent({
-      model: 'gemini-2.5-flash-preview-05-20',
+      model: selectedAiModel,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
         tools: [

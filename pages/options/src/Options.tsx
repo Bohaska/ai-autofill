@@ -1,13 +1,14 @@
-import type React from 'react';
-import { useState, useEffect, useCallback } from 'react';
 import '@src/Options.css';
 import { t } from '@extension/i18n';
 import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
-import { exampleThemeStorage } from '@extension/storage';
+import { aiModelStorage, exampleThemeStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
+import { useCallback, useEffect, useState } from 'react';
+import type React from 'react';
 
 const Options = () => {
   const { isLight } = useStorage(exampleThemeStorage);
+  const { model: aiModel } = useStorage(aiModelStorage);
   const logo = isLight ? 'options/logo_horizontal.svg' : 'options/logo_horizontal_dark.svg';
 
   const [profileText, setProfileText] = useState<string>('');
@@ -65,7 +66,9 @@ const Options = () => {
       return;
     }
     if (profiles[newProfileName.trim()]) {
-      setStatus(`Profile "${newProfileName.trim()}" already exists. Please choose a different name or select it to edit.`);
+      setStatus(
+        `Profile "${newProfileName.trim()}" already exists. Please choose a different name or select it to edit.`,
+      );
       return;
     }
 
@@ -100,23 +103,39 @@ const Options = () => {
     setStatus(`Profile "${selectedProfileName}" deleted.`);
   }, [selectedProfileName, profiles]);
 
-  const handleSelectProfile = useCallback(async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const name = e.target.value;
-    setSelectedProfileName(name);
-    setProfileText(profiles[name] || '');
-    await chrome.storage.local.set({ selectedProfileName: name });
-    setStatus(`Profile "${name}" selected.`);
-  }, [profiles]);
+  const handleSelectProfile = useCallback(
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const name = e.target.value;
+      setSelectedProfileName(name);
+      setProfileText(profiles[name] || '');
+      await chrome.storage.local.set({ selectedProfileName: name });
+      setStatus(`Profile "${name}" selected.`);
+    },
+    [profiles],
+  );
 
   const handleSaveApiKey = useCallback(async () => {
     await chrome.storage.local.set({ geminiApiKey: geminiApiKey });
     setStatus('API Key saved!');
   }, [geminiApiKey]);
 
+  const handleAiModelChange = useCallback(
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const model = e.target.value;
+      await aiModelStorage.set(model);
+      setStatus(`AI Model set to "${model}"!`);
+    },
+    [aiModelStorage],
+  );
+
   const goGithubSite = () => chrome.tabs.create(PROJECT_URL_OBJECT);
 
   return (
-    <div className={cn('App min-w-[400px] p-4 overflow-y-auto', isLight ? 'bg-slate-50 text-gray-900' : 'bg-gray-800 text-gray-100')}>
+    <div
+      className={cn(
+        'App min-w-[400px] overflow-y-auto p-4',
+        isLight ? 'bg-slate-50 text-gray-900' : 'bg-gray-800 text-gray-100',
+      )}>
       <header className="App-header flex flex-col items-center">
         <h1 className="mb-4 text-xl font-bold">AI Autofill Pro Settings</h1>
 
@@ -126,8 +145,7 @@ const Options = () => {
             <select
               value={selectedProfileName}
               onChange={handleSelectProfile}
-              className="flex-grow rounded border p-1 bg-white text-gray-900"
-            >
+              className="flex-grow rounded border bg-white p-1 text-gray-900">
               <option value="" disabled>
                 Select a profile
               </option>
@@ -140,8 +158,7 @@ const Options = () => {
             <button
               onClick={handleDeleteProfile}
               className="rounded bg-red-500 px-3 py-1 text-white hover:bg-red-600 disabled:opacity-50"
-              disabled={!selectedProfileName || Object.keys(profiles).length === 1}
-            >
+              disabled={!selectedProfileName || Object.keys(profiles).length === 1}>
               Delete
             </button>
           </div>
@@ -151,13 +168,12 @@ const Options = () => {
               placeholder="New profile name"
               value={newProfileName}
               onChange={e => setNewProfileName(e.target.value)}
-              className="flex-grow rounded border p-1 bg-white text-gray-900"
+              className="flex-grow rounded border bg-white p-1 text-gray-900"
             />
             <button
               onClick={handleCreateNewProfile}
               className="rounded bg-green-500 px-3 py-1 text-white hover:bg-green-600 disabled:opacity-50"
-              disabled={!newProfileName.trim()}
-            >
+              disabled={!newProfileName.trim()}>
               Create New
             </button>
           </div>
@@ -178,13 +194,12 @@ Date of Birth: 1990-01-15
 Gender: Male"
             value={profileText}
             onChange={handleProfileTextChange}
-            className="h-40 w-full resize-y rounded border p-2 text-sm bg-white text-gray-900"
+            className="h-40 w-full resize-y rounded border bg-white p-2 text-sm text-gray-900"
           />
           <button
             onClick={handleSaveProfile}
             className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600 disabled:opacity-50"
-            disabled={!selectedProfileName}
-          >
+            disabled={!selectedProfileName}>
             {t('saveProfileButton', 'Save Current Profile')}
           </button>
         </div>
@@ -196,12 +211,11 @@ Gender: Male"
             placeholder="Enter your Gemini API Key"
             value={geminiApiKey}
             onChange={e => setGeminiApiKey(e.target.value)}
-            className="w-full rounded border p-1 bg-white text-gray-900"
+            className="w-full rounded border bg-white p-1 text-gray-900"
           />
           <button
             onClick={handleSaveApiKey}
-            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600"
-          >
+            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
             Save API Key
           </button>
           <p className="mt-1 text-xs text-gray-600">
@@ -210,19 +224,30 @@ Gender: Male"
               href="https://aistudio.google.com/app/apikey"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
+              className="text-blue-500 hover:underline">
               Google AI Studio
             </a>
             .
           </p>
         </div>
 
+        <div className="mb-4 w-full">
+          <h2 className="mb-2 text-lg font-semibold">Select AI Model</h2>
+          <select
+            value={aiModel}
+            onChange={handleAiModelChange}
+            className="w-full rounded border bg-white p-1 text-gray-900">
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+            <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite</option>
+          </select>
+        </div>
+
         <p className="mt-4 text-sm text-gray-700">Status: {status}</p>
 
         <div className="mt-6 flex flex-col items-center gap-2">
           <ToggleButton onClick={exampleThemeStorage.toggle}>{t('toggleTheme')}</ToggleButton>
-          <button onClick={goGithubSite} className="text-blue-500 hover:underline text-sm">
+          <button onClick={goGithubSite} className="text-sm text-blue-500 hover:underline">
             View Project on GitHub
           </button>
         </div>
