@@ -158,7 +158,7 @@ const Options = () => {
   return (
     <div
       className={cn(
-        'App min-w-[400px] overflow-y-auto p-4',
+        'App min-w-[400px] max-h-screen overflow-y-auto p-4',
         isLight ? 'bg-slate-50 text-gray-900' : 'bg-gray-800 text-gray-100',
       )}>
       <header className="App-header flex flex-col items-center">

@@ -16,7 +16,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* Align content to the top */
+  padding-top: 0; /* Remove any default top padding */
 }
 
 code {

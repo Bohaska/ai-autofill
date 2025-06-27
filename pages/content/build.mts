@@ -8,7 +8,7 @@ const rootDir = resolve(import.meta.dirname);
 const srcDir = resolve(rootDir, 'src');
 const matchesDir = resolve(srcDir, 'matches');
 
-const configs = Object.entries(getContentScriptEntries(matchesDir)).map(([name, entry]) =>
+const configs = [
   withPageConfig({
     mode: IS_DEV ? 'development' : undefined,
     resolve: {
@@ -20,15 +20,15 @@ const configs = Object.entries(getContentScriptEntries(matchesDir)).map(([name, 
     plugins: [IS_DEV && makeEntryPointPlugin()],
     build: {
       lib: {
-        name: name,
+        name: 'all',
         formats: ['iife'],
-        entry,
-        fileName: name,
+        entry: resolve(srcDir, 'index.ts'),
+        fileName: 'all',
       },
       outDir: resolve(rootDir, '..', '..', 'dist', 'content'),
     },
   }),
-);
+];
 
 const builds = configs.map(async config => {
   //@ts-expect-error This is hidden property into vite's resolveConfig()
