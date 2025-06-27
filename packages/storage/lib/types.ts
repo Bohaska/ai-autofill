@@ -36,5 +36,5 @@ export type AnthropicStorageType = BaseStorageType<AnthropicModelState> & {
 };
 
 export type ProviderStorageType = BaseStorageType<ProviderState> & {
-  setProvider: (provider: 'gemini' | 'openai') => Promise<void>;
+  setProvider: (provider: 'gemini' | 'openai' | 'anthropic') => Promise<void>;
 };

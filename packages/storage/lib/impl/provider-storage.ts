@@ -14,7 +14,7 @@ const storage = createStorage<ProviderState>(
 
 export const providerStorage: ProviderStorageType = {
   ...storage,
-  setProvider: async (provider: 'gemini' | 'openai') => {
+  setProvider: async (provider: 'gemini' | 'openai' | 'anthropic') => {
     await storage.set(() => ({
       provider,
     }));

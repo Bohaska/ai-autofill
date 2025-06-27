@@ -1,7 +1,13 @@
 import '@src/Options.css';
 import { t } from '@extension/i18n';
 import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
-import { aiModelStorage, exampleThemeStorage, openAiStorage, providerStorage, anthropicStorage } from '@extension/storage';
+import {
+  aiModelStorage,
+  exampleThemeStorage,
+  openAiStorage,
+  providerStorage,
+  anthropicStorage,
+} from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
@@ -179,7 +185,7 @@ const Options = () => {
   return (
     <div
       className={cn(
-        'App min-w-[400px] max-h-screen overflow-y-auto p-4',
+        'App max-h-screen min-w-[400px] overflow-y-auto p-4',
         isLight ? 'bg-slate-50 text-gray-900' : 'bg-gray-800 text-gray-100',
       )}>
       <header className="App-header flex flex-col items-center">
