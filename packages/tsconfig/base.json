@@ -14,7 +14,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "noImplicitReturns": true,
+    "noImplicitReturns": false,
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "bundler",

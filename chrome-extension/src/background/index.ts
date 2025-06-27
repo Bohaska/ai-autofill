@@ -1,8 +1,19 @@
-import 'webextension-polyfill';
-import { GoogleGenAI, Type } from '@google/genai';
+import "webextension-polyfill";
+import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
 
 // Temporary storage for autofill requests, as service workers are stateless
-const autofillRequests: Record<number, { profile: any; apiKey: string; selectedAiModel: string }> = {}; // Change type to 'any' for structured profile
+const autofillRequests: Record<
+  number,
+  {
+    profile: any;
+    geminiApiKey: string;
+    selectedGeminiModel: string;
+    openAiApiKey: string;
+    selectedOpenAiModel: string;
+    selectedProvider: "gemini" | "openai";
+  }
+> = {}; // Change type to 'any' for structured profile
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Mark sendResponse as asynchronous to allow handlers to use it later
@@ -27,10 +38,19 @@ async function handleAutofillRequest(payload: { tabId: number; profile: any; api
     return;
   }
 
-  const { selectedAiModel } = await chrome.storage.local.get('selectedAiModel');
+  const { model: selectedGeminiModel } = await chrome.storage.local.get('ai-model-storage-key');
+  const { apiKey: openAiApiKey, model: selectedOpenAiModel } = await chrome.storage.local.get('openai-storage-key');
+  const { provider: selectedProvider } = await chrome.storage.local.get('provider-storage-key');
 
   // Store the payload temporarily
-  autofillRequests[tabId] = { profile, apiKey, selectedAiModel: selectedAiModel || 'gemini-2.5-flash-lite-preview-06-17' };
+  autofillRequests[tabId] = {
+    profile,
+    geminiApiKey: apiKey,
+    selectedGeminiModel: selectedGeminiModel || "gemini-2.5-flash-lite-preview-06-17",
+    openAiApiKey: openAiApiKey || "",
+    selectedOpenAiModel: selectedOpenAiModel || "gpt-4.1-mini",
+    selectedProvider: selectedProvider || "gemini"
+  };
 
   try {
     // Send message to content script to extract form data
@@ -54,23 +74,59 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
     return;
   }
 
-  const { profile, apiKey, selectedAiModel } = autofillRequests[tabId];
+  const {
+    profile,
+    geminiApiKey,
+    selectedGeminiModel,
+    openAiApiKey,
+    selectedOpenAiModel,
+    selectedProvider
+  } = autofillRequests[tabId];
 
-  if (!apiKey) {
-    console.error('Gemini API Key is missing.');
-    chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Error: Gemini API Key is missing. Please set it in the popup.' });
+  let aiModel: any;
+  let currentApiKey: string;
+  let modelName: string;
+
+  if (selectedProvider === "gemini") {
+    if (!geminiApiKey) {
+      console.error("Gemini API Key is missing.");
+      chrome.runtime.sendMessage({
+        type: "UPDATE_POPUP_STATUS",
+        payload: "Error: Gemini API Key is missing. Please set it in the popup."
+      });
+      delete autofillRequests[tabId];
+      sendResponse({ success: false, error: "Gemini API Key is missing." });
+      return;
+    }
+    aiModel = new GoogleGenAI({ apiKey: geminiApiKey });
+    modelName = selectedGeminiModel;
+    currentApiKey = geminiApiKey;
+  } else if (selectedProvider === "openai") {
+    if (!openAiApiKey) {
+      console.error("OpenAI API Key is missing.");
+      chrome.runtime.sendMessage({
+        type: "UPDATE_POPUP_STATUS",
+        payload: "Error: OpenAI API Key is missing. Please set it in the popup."
+      });
+      delete autofillRequests[tabId];
+      sendResponse({ success: false, error: "OpenAI API Key is missing." });
+      return;
+    }
+    aiModel = new OpenAI({ apiKey: openAiApiKey });
+    modelName = selectedOpenAiModel;
+    currentApiKey = openAiApiKey;
+  } else {
+    console.error("No AI provider selected.");
+    chrome.runtime.sendMessage({ type: "UPDATE_POPUP_STATUS", payload: "Error: No AI provider selected." });
     delete autofillRequests[tabId];
-    sendResponse({ success: false, error: 'Gemini API Key is missing.' }); // Send error response
+    sendResponse({ success: false, error: "No AI provider selected." });
     return;
   }
 
   // Acknowledge receipt to the content script immediately.
-  // The actual result of the Gemini call will be communicated via chrome.tabs.sendMessage later.
-  sendResponse({ success: true, message: 'Form data received, processing with Gemini...' });
-  chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Sending data to Gemini...' });
-
-  const ai = new GoogleGenAI({ apiKey: apiKey });
-  const model = ai.models;
+  // The actual result of the AI call will be communicated via chrome.tabs.sendMessage later.
+  sendResponse({ success: true, message: `Form data received, processing with ${selectedProvider}...` });
+  chrome.runtime.sendMessage({ type: "UPDATE_POPUP_STATUS", payload: `Sending data to ${selectedProvider}...` });
 
   // Sort page context items by their DOM order
   pageContextItems.sort((a, b) => a.domOrder - b.domOrder);
@@ -104,58 +160,115 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
   const prompt = `You are an AI assistant specialized in intelligently filling web forms.\nHere is a description of the web page's structure, including text content and form elements, ordered by their appearance in the DOM:\n${pageStructureDescription}\n\nHere is a more structured list of the form elements found on the page, including their unique selectors for interaction:\n${JSON.stringify(formElementsForPrompt, null, 2)}\n\nHere is the user's personal information. Use these details to fill the form:\n${profile}\n\nYour goal is to fill out this form accurately using the provided user information.\nYou have the following tools available:\nfunction fill_text_input(selector: string, value: string, field_type: string)\nfunction select_dropdown_option(selector: string, value: string)\nfunction check_radio_or_checkbox(selector: string, checked: boolean)\n\nBased on the form elements, the surrounding text context, and user data, suggest the next action(s) to take using the available tools. Output your action(s) as a JSON array of tool calls.\n`;
 
   try {
-    const result = await model.generateContent({
-      model: selectedAiModel,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        tools: [
-          {
-            functionDeclarations: [
-              {
-                name: 'fill_text_input',
-                parameters: {
-                  type: Type.OBJECT,
-                  properties: {
-                    selector: { type: Type.STRING },
-                    value: { type: Type.STRING },
-                    field_type: { type: Type.STRING },
-                  },
-                  required: ['selector', 'value', 'field_type'],
+    let toolCalls;
+    if (selectedProvider === "gemini") {
+      const geminiResult = await aiModel.models.generateContent({
+        model: modelName,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          tools: [
+            {
+              functionDeclarations: [
+                {
+                  name: "fill_text_input",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      selector: { type: Type.STRING },
+                      value: { type: Type.STRING },
+                      field_type: { type: Type.STRING }
+                    },
+                    required: ["selector", "value", "field_type"]
+                  }
                 },
-              },
-              {
-                name: 'select_dropdown_option',
-                parameters: {
-                  type: Type.OBJECT,
-                  properties: {
-                    selector: { type: Type.STRING },
-                    value: { type: Type.STRING },
-                  },
-                  required: ['selector', 'value'],
+                {
+                  name: "select_dropdown_option",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      selector: { type: Type.STRING },
+                      value: { type: Type.STRING }
+                    },
+                    required: ["selector", "value"]
+                  }
                 },
+                {
+                  name: "check_radio_or_checkbox",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      selector: { type: Type.STRING },
+                      checked: { type: Type.BOOLEAN }
+                    },
+                    required: ["selector", "checked"]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      });
+      toolCalls = geminiResult.functionCalls;
+      console.log(`${selectedProvider} LLM Raw Response Text:`, geminiResult.text);
+    } else if (selectedProvider === "openai") {
+      const tools = [
+        {
+          type: "function",
+          function: {
+            name: "fill_text_input",
+            parameters: {
+              type: "object",
+              properties: {
+                selector: { type: "string" },
+                value: { type: "string" },
+                field_type: { type: "string" }
               },
-              {
-                name: 'check_radio_or_checkbox',
-                parameters: {
-                  type: Type.OBJECT,
-                  properties: {
-                    selector: { type: Type.STRING },
-                    checked: { type: Type.BOOLEAN },
-                  },
-                  required: ['selector', 'checked'],
-                },
+              required: ["selector", "value", "field_type"]
+            }
+          }
+        },
+        {
+          type: "function",
+          function: {
+            name: "select_dropdown_option",
+            parameters: {
+              type: "object",
+              properties: {
+                selector: { type: "string" },
+                value: { type: "string" }
               },
-            ],
-          },
-        ],
-      },
-    });
+              required: ["selector", "value"]
+            }
+          }
+        },
+        {
+          type: "function",
+          function: {
+            name: "check_radio_or_checkbox",
+            parameters: {
+              type: "object",
+              properties: {
+                selector: { type: "string" },
+                checked: { type: "boolean" }
+              },
+              required: ["selector", "checked"]
+            }
+          }
+        }
+      ];
 
-    // Log the LLM response
-    const responseText = result.text;
-    console.log('Gemini LLM Raw Response Text:', responseText);
-    const toolCalls = result.functionCalls;
-    console.log('Gemini LLM Function Calls:', toolCalls);
+      const chatCompletion = await aiModel.chat.completions.create({
+        model: modelName,
+        messages: [{ role: "user", content: prompt }],
+        tools: tools,
+        tool_choice: "auto"
+      });
+
+      toolCalls = chatCompletion.choices[0].message.tool_calls;
+      console.log(`${selectedProvider} LLM Raw Response Text:`, chatCompletion.choices[0].message.content);
+    }
+
+    console.log(`${selectedProvider} LLM Function Calls:`, toolCalls);
 
     if (toolCalls && toolCalls.length > 0) {
       chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'Filling fields...' });
@@ -163,16 +276,19 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
       // No sendResponse here for the original message, it was already sent.
       // The content script will receive EXECUTE_ACTIONS directly.
     } else {
-      chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: 'No fields to fill or Gemini returned no actions.' });
+      chrome.runtime.sendMessage({
+        type: "UPDATE_POPUP_STATUS",
+        payload: `No fields to fill or ${selectedProvider} returned no actions.`
+      });
       // No sendResponse here.
     }
 
   } catch (error: any) { // Explicitly type error as 'any' to access properties
-    console.error('Gemini API call failed:', error);
-    let userFriendlyMessage = `Error from Gemini: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(`${selectedProvider} API call failed:`, error);
+    let userFriendlyMessage = `Error from ${selectedProvider}: ${error instanceof Error ? error.message : String(error)}`;
 
-    // Check for 429 Quota Exceeded error
-    if (error.response && error.response.status === 429) {
+    // Check for 429 Quota Exceeded error (Gemini specific)
+    if (selectedProvider === "gemini" && error.response && error.response.status === 429) {
       try {
         const errorBody = JSON.parse(await error.response.text());
         const quotaMetric = errorBody.error?.details?.[0]?.violations?.[0]?.quotaMetric;
@@ -193,6 +309,9 @@ async function handleFormDataExtracted(pageContextItems: any[], tabId: number | 
         console.warn('Failed to parse Gemini 429 error response:', parseError);
         userFriendlyMessage = `Gemini API Quota Exceeded (429). Could not determine retry time.`;
       }
+    } else if (selectedProvider === "openai" && error.response && error.response.status === 429) {
+      // OpenAI specific 429 handling (if different)
+      userFriendlyMessage = `OpenAI API Rate Limit Exceeded. Please try again later.`;
     }
 
     chrome.runtime.sendMessage({ type: 'UPDATE_POPUP_STATUS', payload: userFriendlyMessage });

@@ -1,7 +1,7 @@
 import '@src/Options.css';
 import { t } from '@extension/i18n';
 import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
-import { aiModelStorage, exampleThemeStorage } from '@extension/storage';
+import { aiModelStorage, exampleThemeStorage, openAiStorage, providerStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
@@ -9,6 +9,8 @@ import type React from 'react';
 const Options = () => {
   const { isLight } = useStorage(exampleThemeStorage);
   const { model: aiModel } = useStorage(aiModelStorage);
+  const { apiKey: openAiApiKey, model: openAiModel } = useStorage(openAiStorage);
+  const { provider: selectedProvider } = useStorage(providerStorage);
   const logo = isLight ? 'options/logo_horizontal.svg' : 'options/logo_horizontal_dark.svg';
 
   const [profileText, setProfileText] = useState<string>('');
@@ -114,18 +116,41 @@ const Options = () => {
     [profiles],
   );
 
-  const handleSaveApiKey = useCallback(async () => {
+  const handleSaveGeminiApiKey = useCallback(async () => {
     await chrome.storage.local.set({ geminiApiKey: geminiApiKey });
-    setStatus('API Key saved!');
+    setStatus('Gemini API Key saved!');
   }, [geminiApiKey]);
 
-  const handleAiModelChange = useCallback(
+  const handleGeminiAiModelChange = useCallback(
     async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const model = e.target.value;
       await aiModelStorage.set({ model });
-      setStatus(`AI Model set to "${model}"!`);
+      setStatus(`Gemini AI Model set to "${model}"!`);
     },
     [aiModelStorage],
+  );
+
+  const handleSaveOpenAiApiKey = useCallback(async () => {
+    await openAiStorage.setApiKey(openAiApiKey);
+    setStatus('OpenAI API Key saved!');
+  }, [openAiApiKey]);
+
+  const handleOpenAiModelChange = useCallback(
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const model = e.target.value;
+      await openAiStorage.setModel(model);
+      setStatus(`OpenAI Model set to "${model}"!`);
+    },
+    [openAiStorage],
+  );
+
+  const handleProviderChange = useCallback(
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const provider = e.target.value as 'gemini' | 'openai';
+      await providerStorage.setProvider(provider);
+      setStatus(`Provider set to "${provider}"!`);
+    },
+    [providerStorage],
   );
 
   const goGithubSite = () => chrome.tabs.create(PROJECT_URL_OBJECT);
@@ -205,43 +230,101 @@ Gender: Male"
         </div>
 
         <div className="mb-4 w-full">
-          <h2 className="mb-2 text-lg font-semibold">Gemini API Key</h2>
-          <input
-            type="password"
-            placeholder="Enter your Gemini API Key"
-            value={geminiApiKey}
-            onChange={e => setGeminiApiKey(e.target.value)}
-            className="w-full rounded border bg-white p-1 text-gray-900"
-          />
-          <button
-            onClick={handleSaveApiKey}
-            className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
-            Save API Key
-          </button>
-          <p className="mt-1 text-xs text-gray-600">
-            Your API key is stored locally in your browser. Get one from{' '}
-            <a
-              href="https://aistudio.google.com/app/apikey"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline">
-              Google AI Studio
-            </a>
-            .
-          </p>
-        </div>
-
-        <div className="mb-4 w-full">
-          <h2 className="mb-2 text-lg font-semibold">Select AI Model</h2>
+          <h2 className="mb-2 text-lg font-semibold">Select AI Provider</h2>
           <select
-            value={aiModel}
-            onChange={handleAiModelChange}
+            value={selectedProvider}
+            onChange={handleProviderChange}
             className="w-full rounded border bg-white p-1 text-gray-900">
-            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-            <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite</option>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
           </select>
         </div>
+
+        {selectedProvider === `gemini` && (
+          <div className="mb-4 w-full">
+            <h2 className="mb-2 text-lg font-semibold">Gemini API Key</h2>
+            <input
+              type="password"
+              placeholder="Enter your Gemini API Key"
+              value={geminiApiKey}
+              onChange={e => setGeminiApiKey(e.target.value)}
+              className="w-full rounded border bg-white p-1 text-gray-900"
+            />
+            <button
+              onClick={handleSaveGeminiApiKey}
+              className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
+              Save API Key
+            </button>
+            <p className="mt-1 text-xs text-gray-600">
+              Your API key is stored locally in your browser. Get one from
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline">
+                Google AI Studio
+              </a>
+              .
+            </p>
+          </div>
+        )}
+
+        {selectedProvider === 'gemini' && (
+          <div className="mb-4 w-full">
+            <h2 className="mb-2 text-lg font-semibold">Select Gemini AI Model</h2>
+            <select
+              value={aiModel}
+              onChange={handleGeminiAiModelChange}
+              className="w-full rounded border bg-white p-1 text-gray-900">
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite</option>
+            </select>
+          </div>
+        )}
+
+        {selectedProvider === 'openai' && (
+          <div className="mb-4 w-full">
+            <h2 className="mb-2 text-lg font-semibold">OpenAI API Key</h2>
+            <input
+              type="password"
+              placeholder="Enter your OpenAI API Key"
+              value={openAiApiKey}
+              onChange={e => openAiStorage.setApiKey(e.target.value)}
+              className="w-full rounded border bg-white p-1 text-gray-900"
+            />
+            <button
+              onClick={handleSaveOpenAiApiKey}
+              className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
+              Save API Key
+            </button>
+            <p className="mt-1 text-xs text-gray-600">
+              Your API key is stored locally in your browser. Get one from{' '}
+              <a
+                href="https://platform.openai.com/account/api-keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline">
+                OpenAI Platform
+              </a>
+              .
+            </p>
+          </div>
+        )}
+
+        {selectedProvider === 'openai' && (
+          <div className="mb-4 w-full">
+            <h2 className="mb-2 text-lg font-semibold">Select OpenAI Model</h2>
+            <select
+              value={openAiModel}
+              onChange={handleOpenAiModelChange}
+              className="w-full rounded border bg-white p-1 text-gray-900">
+              <option value="gpt-4.1">GPT-4.1</option>
+              <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+              <option value="gpt-4.1-nano">GPT-4.1 nano</option>
+            </select>
+          </div>
+        )}
 
         <p className="mt-4 text-sm text-gray-700">Status: {status}</p>
 

@@ -1,98 +1,5 @@
 import 'webextension-polyfill';
-
-// Function to get a robust XPath for an element
-function getElementXPath(element: Element): string {
-  if (element.id !== '') {
-    return `//*[@id='${element.id}']`;
-  }
-  if (element === document.body) {
-    return '/html/body';
-  }
-
-  let ix = 0;
-  const siblings = element.parentNode?.children || [];
-  for (let i = 0; i < siblings.length; i++) {
-    const sibling = siblings[i];
-    if (sibling === element) {
-      return `${getElementXPath(element.parentNode!)}/${element.tagName.toLowerCase()}[${ix + 1}]`;
-    }
-    if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
-      ix++;
-    }
-  }
-  return ''; // Fallback if no parent or unique path found
-}
-
-// Function to extract form data from the current page
-function extractFormData() {
-  const formElements: any[] = [];
-  document.querySelectorAll('input, textarea, select').forEach(element => {
-    const el = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-    const data: any = {
-      tagName: el.tagName.toLowerCase(),
-      type: el.type || el.tagName.toLowerCase(), // 'input' type can be missing
-      id: el.id,
-      name: el.name,
-      placeholder: el.placeholder,
-      value: el.value,
-      selector: getElementXPath(el), // Use XPath for robust selection
-    };
-
-    // Get associated label text
-    let labelText = '';
-    if (el.labels && el.labels.length > 0) {
-      labelText = el.labels[0].textContent || '';
-    } else {
-      // Look for sibling or parent labels
-      let current = el.previousElementSibling;
-      while (current) {
-        if (current.tagName.toLowerCase() === 'label') {
-          labelText = current.textContent || '';
-          break;
-        }
-        current = current.previousElementSibling;
-      }
-      if (!labelText && el.parentElement?.tagName.toLowerCase() === 'label') {
-        labelText = el.parentElement.textContent || '';
-      }
-    }
-    data.labelText = labelText.trim();
-
-    // Get aria-label or aria-labelledby
-    data.ariaLabel = el.getAttribute('aria-label');
-    data.ariaLabelledBy = el.getAttribute('aria-labelledby');
-
-    if (el.tagName.toLowerCase() === 'select') {
-      data.options = Array.from((el as HTMLSelectElement).options).map(opt => ({
-        text: opt.textContent,
-        value: opt.value,
-      }));
-    } else if (el.type === 'radio' || el.type === 'checkbox') {
-      data.checked = (el as HTMLInputElement).checked;
-    }
-
-    formElements.push(data);
-  });
-  return formElements;
-}
-
-// Helper functions for specific actions
-function fillTextInput(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
-  element.value = value;
-  element.dispatchEvent(new Event('input', { bubbles: true }));
-  element.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
-function selectDropdownOption(element: HTMLSelectElement, value: string) {
-  element.value = value;
-  element.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
-function checkRadioOrCheckbox(element: HTMLInputElement, checked: boolean) {
-  element.checked = checked;
-  element.dispatchEvent(new Event('click', { bubbles: true })); // Click often triggers more reliably for checkboxes/radios
-  element.dispatchEvent(new Event('change', { bubbles: true }));
-}
+import { checkRadioOrCheckbox, extractFormData, fillTextInput, selectDropdownOption } from './utils';
 
 // Function to execute actions received from the background script
 async function executeActions(actions: any[]) {
@@ -113,6 +20,7 @@ async function executeActions(actions: any[]) {
       element = result.singleNodeValue as HTMLElement | null;
     } catch (e) {
       console.warn(`Error evaluating XPath '${selector}':`, e);
+      continue;
     }
 
     if (!element) {
@@ -135,9 +43,9 @@ async function executeActions(actions: any[]) {
       setTimeout(() => {
         element.style.outline = 'none';
       }, 1500); // Remove highlight after 1.5 seconds
-
     } catch (e) {
       console.error(`Error executing action '${tool_name}' on element with selector '${selector}':`, e);
+      continue;
     }
   }
   chrome.runtime.sendMessage({ type: 'FILL_COMPLETE' });
