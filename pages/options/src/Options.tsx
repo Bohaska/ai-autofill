@@ -1,7 +1,7 @@
 import '@src/Options.css';
 import { t } from '@extension/i18n';
 import { PROJECT_URL_OBJECT, useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
-import { aiModelStorage, exampleThemeStorage, openAiStorage, providerStorage } from '@extension/storage';
+import { aiModelStorage, exampleThemeStorage, openAiStorage, providerStorage, anthropicStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner, ToggleButton } from '@extension/ui';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
@@ -10,6 +10,7 @@ const Options = () => {
   const { isLight } = useStorage(exampleThemeStorage);
   const { model: aiModel } = useStorage(aiModelStorage);
   const { apiKey: openAiApiKey, model: openAiModel } = useStorage(openAiStorage);
+  const { apiKey: anthropicApiKey, model: anthropicModel } = useStorage(anthropicStorage);
   const { provider: selectedProvider } = useStorage(providerStorage);
   const logo = isLight ? 'options/logo_horizontal.svg' : 'options/logo_horizontal_dark.svg';
 
@@ -19,6 +20,8 @@ const Options = () => {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [selectedProfileName, setSelectedProfileName] = useState<string>('');
   const [newProfileName, setNewProfileName] = useState<string>('');
+
+  const [anthropicApiKeyInput, setAnthropicApiKeyInput] = useState<string>(anthropicApiKey);
 
   useEffect(() => {
     // Load profiles, selected profile, and API key from storage on component mount
@@ -46,6 +49,10 @@ const Options = () => {
       }
     });
   }, []);
+
+  useEffect(() => {
+    setAnthropicApiKeyInput(anthropicApiKey);
+  }, [anthropicApiKey]);
 
   const handleProfileTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setProfileText(e.target.value);
@@ -144,9 +151,23 @@ const Options = () => {
     [openAiStorage],
   );
 
+  const handleSaveAnthropicApiKey = useCallback(async () => {
+    await anthropicStorage.setApiKey(anthropicApiKeyInput);
+    setStatus('Anthropic API Key saved!');
+  }, [anthropicApiKeyInput]);
+
+  const handleAnthropicModelChange = useCallback(
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const model = e.target.value;
+      await anthropicStorage.setModel(model);
+      setStatus(`Anthropic Model set to "${model}"!`);
+    },
+    [anthropicStorage],
+  );
+
   const handleProviderChange = useCallback(
     async (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const provider = e.target.value as 'gemini' | 'openai';
+      const provider = e.target.value as 'gemini' | 'openai' | 'anthropic';
       await providerStorage.setProvider(provider);
       setStatus(`Provider set to "${provider}"!`);
     },
@@ -237,6 +258,7 @@ Gender: Male"
             className="w-full rounded border bg-white p-1 text-gray-900">
             <option value="gemini">Gemini</option>
             <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
           </select>
         </div>
 
@@ -322,6 +344,52 @@ Gender: Male"
               <option value="gpt-4.1">GPT-4.1</option>
               <option value="gpt-4.1-mini">GPT-4.1 mini</option>
               <option value="gpt-4.1-nano">GPT-4.1 nano</option>
+            </select>
+          </div>
+        )}
+
+        {selectedProvider === 'anthropic' && (
+          <div className="mb-4 w-full">
+            <h2 className="mb-2 text-lg font-semibold">Anthropic API Key</h2>
+            <input
+              type="password"
+              placeholder="Enter your Anthropic API Key"
+              value={anthropicApiKeyInput}
+              onChange={e => setAnthropicApiKeyInput(e.target.value)}
+              className="w-full rounded border bg-white p-1 text-gray-900"
+            />
+            <button
+              onClick={handleSaveAnthropicApiKey}
+              className="mt-2 w-full rounded bg-blue-500 py-1 text-white hover:bg-blue-600">
+              Save API Key
+            </button>
+            <p className="mt-1 text-xs text-gray-600">
+              Your API key is stored locally in your browser. Get one from{' '}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline">
+                Anthropic Console
+              </a>
+              .
+            </p>
+          </div>
+        )}
+
+        {selectedProvider === 'anthropic' && (
+          <div className="mb-4 w-full">
+            <h2 className="mb-2 text-lg font-semibold">Select Anthropic Model</h2>
+            <select
+              value={anthropicModel}
+              onChange={handleAnthropicModelChange}
+              className="w-full rounded border bg-white p-1 text-gray-900">
+              <option value="claude-opus-4-0">Claude Opus 4</option>
+              <option value="claude-sonnet-4-0">Claude Sonnet 4</option>
+              <option value="claude-3-7-sonnet-latest">Claude Sonnet 3.7</option>
+              <option value="claude-3-5-sonnet-latest">Claude Sonnet 3.5</option>
+              <option value="claude-3-5-haiku-latest">Claude Haiku 3.5</option>
+              <option value="claude-3-opus-latest">Claude Opus 3</option>
             </select>
           </div>
         )}

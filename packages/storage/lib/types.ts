@@ -16,12 +16,21 @@ export type OpenAiModelState = {
   model: string;
 };
 
+export type AnthropicModelState = {
+  apiKey: string;
+  model: string;
+};
+
 export type ProviderState = {
-  provider: 'gemini' | 'openai';
+  provider: 'gemini' | 'openai' | 'anthropic';
 };
 
 export type AiModelStorageType = BaseStorageType<AiModelState>;
 export type OpenAiStorageType = BaseStorageType<OpenAiModelState> & {
+  setApiKey: (apiKey: string) => Promise<void>;
+  setModel: (model: string) => Promise<void>;
+};
+export type AnthropicStorageType = BaseStorageType<AnthropicModelState> & {
   setApiKey: (apiKey: string) => Promise<void>;
   setModel: (model: string) => Promise<void>;
 };

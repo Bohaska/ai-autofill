@@ -1,8 +1,10 @@
+console.log('AI Autofill Pro Content Script: Initializing...');
 import 'webextension-polyfill';
-import { checkRadioOrCheckbox, extractFormData, fillTextInput, selectDropdownOption } from './utils';
+import { checkRadioOrCheckbox, extractPageContext, fillTextInput, selectDropdownOption } from './utils';
 
 // Function to execute actions received from the background script
 async function executeActions(actions: any[]) {
+  console.log('Executing actions:', actions);
   const actionHandlers: { [key: string]: (element: HTMLElement, args: any) => void } = {
     fill_text_input: (element, args) => fillTextInput(element as HTMLInputElement | HTMLTextAreaElement, args.value),
     select_dropdown_option: (element, args) => selectDropdownOption(element as HTMLSelectElement, args.value),
@@ -12,12 +14,14 @@ async function executeActions(actions: any[]) {
   for (const action of actions) {
     const { tool_name, args } = action;
     const selector = args.selector;
+    console.log(`Processing action: ${tool_name} for selector: ${selector} with args:`, args);
 
     let element: HTMLElement | null = null;
     try {
       // Use XPath to find the element
       const result = document.evaluate(selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
       element = result.singleNodeValue as HTMLElement | null;
+      console.log(`Element found for selector ${selector}:`, element);
     } catch (e) {
       console.warn(`Error evaluating XPath '${selector}':`, e);
       continue;
@@ -31,6 +35,7 @@ async function executeActions(actions: any[]) {
     try {
       const handler = actionHandlers[tool_name];
       if (handler) {
+        console.log(`Calling handler for ${tool_name} on element:`, element);
         handler(element, args);
       } else {
         console.warn(`Unknown tool_name: ${tool_name}`);
@@ -54,10 +59,11 @@ async function executeActions(actions: any[]) {
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'EXTRACT_FORM_DATA') {
-    const formData = extractFormData();
-    chrome.runtime.sendMessage({ type: 'FORM_DATA_EXTRACTED', payload: formData });
+    const pageContext = extractPageContext();
+    chrome.runtime.sendMessage({ type: 'FORM_DATA_EXTRACTED', payload: pageContext });
     return true; // Indicates async response
   } else if (message.type === 'EXECUTE_ACTIONS') {
+    console.log('Content Script: Received EXECUTE_ACTIONS message.');
     executeActions(message.payload);
     return true; // Indicates async response
   }
